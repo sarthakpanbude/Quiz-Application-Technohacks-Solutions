@@ -6,12 +6,7 @@ session_start();
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/gemini_ai.php';
 
-// Auto login default trainer if not logged in
-if (!isset($_SESSION['user_id'])) {
-    $_SESSION['user_id'] = 'trainer_default_id';
-    $_SESSION['username'] = 'TechnoHacks Admin';
-    $_SESSION['role'] = 'TRAINER';
-}
+// Auto login removed, admin authentication is required.
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $response = ['error' => 'Invalid action'];
@@ -21,6 +16,44 @@ try {
         case 'list_quizzes':
             $stmt = $pdo->query("SELECT * FROM quizzes ORDER BY id DESC");
             $response = $stmt->fetchAll();
+            break;
+
+        case 'check_auth':
+            if (isset($_SESSION['role']) && $_SESSION['role'] === 'ADMIN') {
+                $response = ['is_admin' => true];
+            } else {
+                $response = ['is_admin' => false];
+            }
+            break;
+
+        case 'admin_login':
+            $user = json_decode(file_get_contents('php://input'), true);
+            $username = $user['username'] ?? '';
+            $password = $user['password'] ?? '';
+            if ($username === 'admin' && $password === 'admin') {
+                $_SESSION['user_id'] = 'admin_id';
+                $_SESSION['username'] = 'Admin';
+                $_SESSION['role'] = 'ADMIN';
+                $response = ['success' => true];
+            } else {
+                $response = ['error' => 'Invalid credentials'];
+            }
+            break;
+
+        case 'admin_logout':
+            session_destroy();
+            $response = ['success' => true];
+            break;
+
+        case 'get_live_sessions':
+            $stmt = $pdo->query("SELECT qs.*, q.title as quiz_title FROM quiz_sessions qs JOIN quizzes q ON qs.quiz_id = q.id ORDER BY qs.id DESC");
+            $sessions = $stmt->fetchAll();
+            foreach ($sessions as &$sess) {
+                $stmtB = $pdo->prepare("SELECT username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY score DESC LIMIT 3");
+                $stmtB->execute([$sess['id']]);
+                $sess['leaderboard'] = $stmtB->fetchAll();
+            }
+            $response = $sessions;
             break;
 
         case 'check_pin':
