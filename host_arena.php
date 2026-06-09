@@ -214,11 +214,9 @@
             <!-- Rank listings -->
           </div>
 
-          <div class="mt-6 text-center">
-            <button onclick="nextQuestion()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-xl text-lg flex items-center justify-center gap-2 shadow-md transform active:scale-95 transition-all">
-              <i data-lucide="arrow-right-circle" class="w-5 h-5 text-white"></i>
-              Next Question
-            </button>
+          <div class="mt-6 text-center p-4 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl font-black flex items-center justify-center gap-2 shadow-inner">
+            <i data-lucide="loader" class="w-5 h-5 text-indigo-500 animate-spin"></i>
+            <span id="auto-next-text">Switching to next question...</span>
           </div>
         </div>
       </div>
@@ -415,6 +413,9 @@
         refreshActiveQuestion(data);
       } else if (newState === 'SHOWING_LEADERBOARD') {
         loadLeaderboardChoices();
+        autoNextTimeout = setTimeout(() => {
+          if (currentState === 'SHOWING_LEADERBOARD') nextQuestion();
+        }, 5000);
       }
 
       lucide.createIcons();
