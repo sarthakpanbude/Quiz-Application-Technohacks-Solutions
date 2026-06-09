@@ -35,19 +35,19 @@ session_start();
 
       <!-- Navigation Tabs -->
       <nav class="flex gap-1" id="nav-tabs">
-        <button onclick="switchTab('JOIN')" id="tab-JOIN" class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-indigo-600 text-white">
+        <button onclick="switchTab('JOIN')" id="tab-JOIN" class="student-only flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-indigo-600 text-white">
           <i data-lucide="gamepad-2" class="w-4 h-4"></i> Join Quiz
         </button>
-        <button onclick="switchTab('DISCOVER')" id="tab-DISCOVER" class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
+        <button onclick="switchTab('DISCOVER')" id="tab-DISCOVER" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="compass" class="w-4 h-4"></i> Discover
         </button>
-        <button onclick="switchTab('LEARN')" id="tab-LEARN" class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
+        <button onclick="switchTab('LEARN')" id="tab-LEARN" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="book-open" class="w-4 h-4"></i> Learn
         </button>
-        <button onclick="switchTab('PRESENT')" id="tab-PRESENT" class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
+        <button onclick="switchTab('PRESENT')" id="tab-PRESENT" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="presentation" class="w-4 h-4"></i> Present (Host)
         </button>
-        <button onclick="switchTab('MAKE')" id="tab-MAKE" class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
+        <button onclick="switchTab('MAKE')" id="tab-MAKE" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="file-pen-line" class="w-4 h-4"></i> Make (Create)
         </button>
       </nav>
@@ -309,13 +309,49 @@ session_start();
       </div>
     </div>
 
+    <!-- ADMIN TAB VIEW -->
+    <div id="panel-ADMIN" class="tab-panel hidden w-full py-12">
+      <!-- Login View -->
+      <div id="admin-login-view" class="w-full max-w-md mx-auto bg-white border border-slate-200 rounded-2xl shadow-xl p-8 space-y-6">
+        <div class="text-center">
+          <h2 class="font-sans text-2xl font-extrabold text-slate-900">Admin Login</h2>
+          <p class="text-slate-500 text-xs mt-1">Authenticate to access host privileges.</p>
+        </div>
+        <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+          <input type="text" id="admin-user" required placeholder="Username" class="w-full text-center font-bold text-lg bg-slate-50 border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl p-3.5 text-slate-800" />
+          <input type="password" id="admin-pass" required placeholder="Password" class="w-full text-center font-bold text-lg bg-slate-50 border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl p-3.5 text-slate-800" />
+          <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl text-sm transition-colors cursor-pointer">
+            Login
+          </button>
+        </form>
+      </div>
+
+      <!-- Dashboard View -->
+      <div id="admin-dashboard-view" class="hidden w-full max-w-5xl mx-auto space-y-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="font-sans text-2xl font-extrabold text-slate-900">Live Sessions & Leaderboards</h2>
+            <p class="text-slate-500 text-sm">Monitor all active game lobbies and their standings in real time.</p>
+          </div>
+          <button onclick="handleAdminLogout()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-bold py-2.5 px-4 rounded-xl text-xs transition-colors cursor-pointer">
+            Logout Admin
+          </button>
+        </div>
+        <div id="admin-sessions-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Dynamic sessions loaded here -->
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Footer -->
   <footer class="bg-white border-t border-slate-200 py-6 mt-12">
     <div class="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center text-slate-400 text-xs gap-3">
       <span>&copy; <?php echo date('Y'); ?> TechnoHacks Solutions Institute. All rights reserved.</span>
-      <div class="flex gap-4 font-semibold text-slate-500">
+      <div class="flex gap-4 font-semibold text-slate-500 items-center">
+        <span class="cursor-pointer hover:text-slate-700 flex items-center gap-1" onclick="switchTab('ADMIN')"><i data-lucide="shield-half" class="w-3.5 h-3.5"></i> Admin Access</span>
+        <span>&middot;</span>
         <span class="cursor-pointer hover:text-slate-700">Terms of Use</span>
         <span>&middot;</span>
         <span class="cursor-pointer hover:text-slate-700">Privacy Policy</span>
@@ -335,9 +371,14 @@ session_start();
 
       // Update Nav Class styles
       document.querySelectorAll('#nav-tabs button').forEach(btn => {
-        btn.className = "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100";
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('text-slate-600', 'hover:bg-slate-100');
       });
-      document.getElementById('tab-' + tabId).className = "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-indigo-600 text-white";
+      const activeBtn = document.getElementById('tab-' + tabId);
+      if (activeBtn) {
+        activeBtn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+        activeBtn.classList.add('bg-indigo-600', 'text-white');
+      }
 
       if (tabId === 'PRESENT') {
         loadTemplates();
@@ -682,7 +723,106 @@ session_start();
       `;
     });
 
+    // Admin Auth & Dash Logic
+    let isAdmin = false;
+
+    function checkAuth() {
+      fetch('api.php?action=check_auth')
+        .then(res => res.json())
+        .then(data => {
+          isAdmin = data.is_admin;
+          updateAdminUI();
+        });
+    }
+
+    function updateAdminUI() {
+      if (isAdmin) {
+        // Hide student tabs, show admin tabs
+        document.querySelectorAll('.student-only').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+        document.getElementById('admin-login-view').classList.add('hidden');
+        document.getElementById('admin-dashboard-view').classList.remove('hidden');
+        switchTab('ADMIN');
+        loadAdminSessions();
+      } else {
+        // Show student tabs, hide admin tabs
+        document.querySelectorAll('.student-only').forEach(el => el.classList.remove('hidden'));
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+        document.getElementById('admin-login-view').classList.remove('hidden');
+        document.getElementById('admin-dashboard-view').classList.add('hidden');
+        switchTab('JOIN');
+      }
+    }
+
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('admin-user').value;
+      const p = document.getElementById('admin-pass').value;
+      fetch('api.php?action=admin_login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username: u, password: p})
+      }).then(res=>res.json()).then(data=>{
+        if (data.success) {
+          isAdmin = true;
+          updateAdminUI();
+          document.getElementById('admin-user').value = '';
+          document.getElementById('admin-pass').value = '';
+        } else {
+          alert('Invalid admin credentials. (Hint: admin/admin)');
+        }
+      });
+    }
+
+    function handleAdminLogout() {
+      fetch('api.php?action=admin_logout').then(() => {
+        isAdmin = false;
+        updateAdminUI();
+        switchTab('JOIN');
+      });
+    }
+
+    function loadAdminSessions() {
+      fetch('api.php?action=get_live_sessions')
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById('admin-sessions-list');
+          container.innerHTML = '';
+          if (data.length === 0) {
+            container.innerHTML = '<p class="text-sm text-slate-500 col-span-2">No active sessions found.</p>';
+            return;
+          }
+          data.forEach(s => {
+            const leaders = s.leaderboard.map((l, i) => `
+              <div class="flex justify-between text-xs py-1.5 border-b border-slate-100 last:border-0">
+                <span class="font-semibold text-slate-700">${i+1}. ${l.name}</span>
+                <span class="font-bold text-indigo-650">${l.score} pts</span>
+              </div>
+            `).join('');
+
+            container.innerHTML += `
+              <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex justify-between items-start mb-2">
+                  <h3 class="font-bold text-slate-900">${s.quiz_title}</h3>
+                  <span class="text-[9px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-2 py-0.5 rounded font-bold uppercase">${s.status}</span>
+                </div>
+                <div class="flex gap-4 text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4">
+                  <span>PIN: <span class="text-indigo-650">${s.pin_code}</span></span>
+                  <span>Q-Index: ${s.current_question_index}</span>
+                </div>
+                <div class="bg-slate-50 rounded-lg border border-slate-100 p-4">
+                  <h4 class="text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-wider flex items-center gap-1.5"><i data-lucide="award" class="w-3.5 h-3.5"></i> Top Standings</h4>
+                  ${leaders || '<p class="text-xs text-slate-500 italic">No participants yet</p>'}
+                </div>
+              </div>
+            `;
+          });
+          lucide.createIcons();
+        });
+    }
+
     // Boot Init
+    checkAuth();
     lucide.createIcons();
   </script>
 </body>

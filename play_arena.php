@@ -39,7 +39,7 @@ try {
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between p-6">
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between p-6" oncopy="return false" onpaste="return false" oncut="return false" oncontextmenu="return false" style="user-select: none;">
 
   <!-- Header -->
   <header class="flex justify-between items-center glass-panel border border-slate-200 p-4 rounded-xl shadow-sm max-w-7xl mx-auto w-full">
@@ -291,7 +291,7 @@ try {
         box.innerHTML = `
           <div class="space-y-4">
             <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest text-left">Write Solution Code</label>
-            <textarea id="coding-input" class="w-full bg-white border border-slate-200 rounded-xl p-4 font-mono text-xs text-cyan-700 h-48 focus:outline-none focus:border-indigo-600" placeholder="${q.coding_template || ''}"></textarea>
+            <textarea id="coding-input" oncopy="return false" onpaste="return false" oncut="return false" ondrop="return false" autocomplete="off" class="w-full bg-white border border-slate-200 rounded-xl p-4 font-mono text-xs text-cyan-700 h-48 focus:outline-none focus:border-indigo-600" placeholder="${q.coding_template || ''}"></textarea>
             <button onclick="submitCodingChallenge()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm transition-colors cursor-pointer">
               Submit Solution Code
             </button>
