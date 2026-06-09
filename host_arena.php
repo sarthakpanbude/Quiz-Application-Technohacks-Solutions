@@ -463,7 +463,7 @@
       document.getElementById('countdown-text').innerText = `${data.time_left}s Left`;
 
       // Play clock tick beats
-      sound.playCountdown(data.time_left);
+      sound.playCountdown(data.time_left, data.current_question_index);
 
       // Fetch Telemetry Admin Dashboard data
       fetch('api.php?action=get_telemetry&pin_code=' + pin)

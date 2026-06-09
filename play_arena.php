@@ -241,7 +241,7 @@ try {
           // Active Timer updates
           if (data.status === 'ACTIVE_QUESTION') {
             document.getElementById('countdown-text').innerText = `${data.time_left}s Left`;
-            sound.playCountdown(data.time_left);
+            sound.playCountdown(data.time_left, data.current_question_index);
           }
         });
     }

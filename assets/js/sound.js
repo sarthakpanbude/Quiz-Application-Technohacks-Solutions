@@ -3,6 +3,16 @@ class SoundSynth {
     this.ctx = null;
     this.lobbyInterval = null;
     this.isMuted = false;
+    this.kbcIntro = new Audio('assets/audio/kbc_intro.webm');
+    this.kbcAudio = new Audio('assets/audio/kbc_music.webm');
+    this.kbcAudio.loop = true;
+    this.hasPlayedIntro = false;
+    
+    this.kbcIntro.onended = () => {
+      if (!this.isMuted && this.currentTimeLeft > 0) {
+        this.kbcAudio.play().catch(e => console.log('Audio playback prevented', e));
+      }
+    };
   }
 
   initCtx() {
@@ -16,6 +26,8 @@ class SoundSynth {
 
   setMute(mute) {
     this.isMuted = mute;
+    this.kbcAudio.muted = mute;
+    this.kbcIntro.muted = mute;
     if (mute) {
       this.stopAll();
     }
@@ -58,106 +70,67 @@ class SoundSynth {
     this.lobbyInterval = setInterval(playNote, 400);
   }
 
-  startKBCDrone() {
-    if (this.isMuted || this.kbcDroneOsc) return;
-    this.initCtx();
-    const ctx = this.ctx;
+  startKBCMusic(questionIndex) {
+    if (this.isMuted) return;
 
-    this.kbcDroneOsc = ctx.createOscillator();
-    this.kbcDroneGain = ctx.createGain();
-    
-    this.kbcDroneOsc.type = 'sawtooth';
-    this.kbcDroneOsc.frequency.setValueAtTime(55, ctx.currentTime); // Low tense note
-
-    // Filter to make it dark and moody
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(150, ctx.currentTime);
-
-    this.kbcDroneGain.gain.setValueAtTime(0, ctx.currentTime);
-    this.kbcDroneGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 2); // Fade in
-
-    this.kbcDroneOsc.connect(filter);
-    filter.connect(this.kbcDroneGain);
-    this.kbcDroneGain.connect(ctx.destination);
-
-    this.kbcDroneOsc.start();
-  }
-
-  stopKBCDrone() {
-    if (this.kbcDroneGain && this.ctx) {
-      this.kbcDroneGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5);
-      setTimeout(() => {
-        if (this.kbcDroneOsc) {
-          try { this.kbcDroneOsc.stop(); } catch(e){}
-          this.kbcDroneOsc = null;
+    if (questionIndex === 0) {
+      if (!this.hasPlayedIntro) {
+        this.hasPlayedIntro = true;
+        this.kbcIntro.currentTime = 0;
+        this.kbcIntro.play().catch(e => console.log('Audio playback prevented', e));
+      } else if (this.kbcIntro.paused && this.kbcIntro.currentTime > 0) {
+        if (this.kbcIntro.ended && this.kbcAudio.paused) {
+          this.kbcAudio.play().catch(e => console.log('Audio playback prevented', e));
         }
-      }, 500);
+      }
+    } else {
+      if (this.kbcAudio.paused) {
+        this.kbcAudio.currentTime = 0;
+        this.kbcAudio.play().catch(e => console.log('Audio playback prevented', e));
+      }
     }
   }
 
-  playCountdown(timeLeft) {
-    if (this.isMuted) return;
+  stopKBCMusic() {
+    if (!this.kbcIntro.paused) {
+      this.kbcIntro.pause();
+      this.kbcIntro.currentTime = 0;
+    }
+    if (!this.kbcAudio.paused) {
+      this.kbcAudio.pause();
+      this.kbcAudio.currentTime = 0;
+    }
+  }
+
+  playCountdown(timeLeft, questionIndex = 1) {
+    this.currentTimeLeft = timeLeft;
+    if (this.isMuted) {
+      this.stopKBCMusic();
+      return;
+    }
+    
     this.initCtx();
     const ctx = this.ctx;
 
-    this.startKBCDrone();
-
-    // Heartbeat low drum (KBC style)
-    const oscLow = ctx.createOscillator();
-    const gainLow = ctx.createGain();
-    oscLow.type = 'sine';
-    oscLow.frequency.setValueAtTime(60, ctx.currentTime);
-    oscLow.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.5);
-    gainLow.gain.setValueAtTime(0.9, ctx.currentTime);
-    gainLow.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-    oscLow.connect(gainLow);
-    gainLow.connect(ctx.destination);
-    oscLow.start();
-    oscLow.stop(ctx.currentTime + 0.6);
-
-    // High tension tick
-    const oscHigh = ctx.createOscillator();
-    const gainHigh = ctx.createGain();
-
-    if (timeLeft <= 5 && timeLeft > 0) {
-      // Faster, more intense tick for last 5 seconds
-      oscHigh.type = 'square';
-      oscHigh.frequency.setValueAtTime(1000, ctx.currentTime);
-      gainHigh.gain.setValueAtTime(0.3, ctx.currentTime);
-      gainHigh.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-      
-      const oscHigh2 = ctx.createOscillator();
-      const gainHigh2 = ctx.createGain();
-      oscHigh2.type = 'square';
-      oscHigh2.frequency.setValueAtTime(1200, ctx.currentTime + 0.2);
-      gainHigh2.gain.setValueAtTime(0.3, ctx.currentTime + 0.2);
-      gainHigh2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      oscHigh2.connect(gainHigh2);
-      gainHigh2.connect(ctx.destination);
-      oscHigh2.start(ctx.currentTime + 0.2);
-      oscHigh2.stop(ctx.currentTime + 0.4);
-
+    if (timeLeft > 0) {
+      this.startKBCMusic(questionIndex);
     } else if (timeLeft === 0) {
-      this.stopKBCDrone();
+      this.stopKBCMusic();
+      
       // KBC Time's up buzzer
+      const oscHigh = ctx.createOscillator();
+      const gainHigh = ctx.createGain();
       oscHigh.type = 'sawtooth';
       oscHigh.frequency.setValueAtTime(150, ctx.currentTime);
       oscHigh.frequency.linearRampToValueAtTime(50, ctx.currentTime + 1.0);
       gainHigh.gain.setValueAtTime(0.7, ctx.currentTime);
       gainHigh.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.0);
-    } else {
-      // Normal KBC tick
-      oscHigh.type = 'triangle';
-      oscHigh.frequency.setValueAtTime(900, ctx.currentTime);
-      gainHigh.gain.setValueAtTime(0.2, ctx.currentTime);
-      gainHigh.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+      
+      oscHigh.connect(gainHigh);
+      gainHigh.connect(ctx.destination);
+      oscHigh.start();
+      oscHigh.stop(ctx.currentTime + 1.5);
     }
-
-    oscHigh.connect(gainHigh);
-    gainHigh.connect(ctx.destination);
-    oscHigh.start();
-    oscHigh.stop(ctx.currentTime + (timeLeft === 0 ? 1.5 : 0.6));
   }
 
   playVictory() {
@@ -190,6 +163,7 @@ class SoundSynth {
       clearInterval(this.lobbyInterval);
       this.lobbyInterval = null;
     }
+    this.stopKBCMusic();
   }
 }
 
