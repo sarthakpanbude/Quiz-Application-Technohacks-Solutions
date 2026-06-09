@@ -390,9 +390,9 @@ try {
             // Score math
             $isCorrect = 0;
             $scoreEarned = 0;
+            $responseTimeMs = (time() - intval($session['active_question_start'])) * 1000;
 
             if ($question['type'] === 'MCQ' || $question['type'] === 'TRUE_FALSE') {
-                // Fetch correct options keys
                 $stmtO = $pdo->prepare("SELECT id FROM options WHERE question_id = ? AND is_correct = 1");
                 $stmtO->execute([$questionId]);
                 $correctOptId = $stmtO->fetchColumn();
@@ -403,12 +403,15 @@ try {
 
             if ($isCorrect) {
                 $streak = intval($participant['streak']) + 1;
-                $scoreEarned = 1;
-                $responseTimeMs = (time() - intval($session['active_question_start'])) * 1000;
+                // Position-based scoring: count correct answers already submitted for this question
+                $stmtRank = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND question_id = ? AND is_correct = 1");
+                $stmtRank->execute([$session['id'], $questionId]);
+                $correctRank = intval($stmtRank->fetchColumn()); // 0-based: 0 means first correct
+                // 1st=10, 2nd=9 ... 10th+=1
+                $scoreEarned = max(1, 10 - $correctRank);
             } else {
                 $streak = 0;
                 $scoreEarned = 0;
-                $responseTimeMs = (time() - intval($session['active_question_start'])) * 1000;
             }
 
             $newScore = intval($participant['score']) + $scoreEarned;
@@ -417,7 +420,7 @@ try {
             $stmtInsR = $pdo->prepare("INSERT INTO session_responses (session_id, question_id, participant_id, option_id, fill_in_text, coding_code, points_earned, response_time_ms, is_correct) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmtInsR->execute([$session['id'], $questionId, $participantId, $optionId ?: null, $fillInText ?: null, $codingCode ?: null, $scoreEarned, $responseTimeMs, $isCorrect]);
 
-            // Update participant scores
+            // Update participant scores and correct_count
             $stmtUpP = $pdo->prepare("UPDATE session_participants SET score = ?, streak = ? WHERE id = ?");
             $stmtUpP->execute([$newScore, $streak, $participantId]);
 
@@ -425,7 +428,8 @@ try {
                 'is_correct' => $isCorrect ? true : false,
                 'score_earned' => $scoreEarned,
                 'total_score' => $newScore,
-                'streak' => $streak
+                'streak' => $streak,
+                'answer_rank' => $isCorrect ? ($correctRank + 1) : 0
             ];
             break;
 
@@ -446,9 +450,20 @@ try {
             $qIds = $stmtQs->fetchAll(PDO::FETCH_COLUMN);
             $activeQId = $qIds[$session['current_question_index']] ?? 0;
 
-            // Fetch active participant feed
+            // Total players
+            $stmtTotal = $pdo->prepare("SELECT COUNT(*) FROM session_participants WHERE session_id = ?");
+            $stmtTotal->execute([$session['id']]);
+            $totalPlayers = intval($stmtTotal->fetchColumn());
+
+            // Total answers submitted overall
+            $stmtTotalAns = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ?");
+            $stmtTotalAns->execute([$session['id']]);
+            $totalAnswers = intval($stmtTotalAns->fetchColumn());
+
+            // Fetch active participant feed with correct_count
             $stmtFeed = $pdo->prepare("SELECT p.username, p.score, p.streak,
-                (SELECT COUNT(*) FROM session_responses r WHERE r.session_id = p.session_id AND r.participant_id = p.id AND r.question_id = ?) as has_answered
+                (SELECT COUNT(*) FROM session_responses r WHERE r.session_id = p.session_id AND r.participant_id = p.id AND r.question_id = ?) as has_answered,
+                (SELECT COUNT(*) FROM session_responses r2 WHERE r2.session_id = p.session_id AND r2.participant_id = p.id AND r2.is_correct = 1) as correct_count
                 FROM session_participants p WHERE p.session_id = ? ORDER BY p.score DESC");
             $stmtFeed->execute([$activeQId, $session['id']]);
             $feed = $stmtFeed->fetchAll();
@@ -459,11 +474,26 @@ try {
                     'name' => $row['username'],
                     'score' => intval($row['score']),
                     'streak' => intval($row['streak']),
+                    'correct_count' => intval($row['correct_count']),
                     'hasAnswered' => intval($row['has_answered']) > 0 ? true : false
                 ];
             }
 
-            $response = $telemetry;
+            // Per-option answer counts for current question
+            $optionCounts = [];
+            if ($activeQId) {
+                $stmtOpts = $pdo->prepare("SELECT o.id, o.text, COUNT(r.id) as pick_count FROM options o LEFT JOIN session_responses r ON r.option_id = o.id AND r.session_id = ? WHERE o.question_id = ? GROUP BY o.id ORDER BY o.o_order ASC");
+                $stmtOpts->execute([$session['id'], $activeQId]);
+                $optionCounts = $stmtOpts->fetchAll();
+            }
+
+            $response = [
+                'players' => $telemetry,
+                'total_players' => $totalPlayers,
+                'total_answers' => $totalAnswers,
+                'current_question_index' => intval($session['current_question_index']),
+                'option_counts' => $optionCounts
+            ];
             break;
 
         case 'next_question':
