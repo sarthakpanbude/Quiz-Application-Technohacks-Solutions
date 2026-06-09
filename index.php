@@ -38,17 +38,23 @@ session_start();
         <button onclick="switchTab('JOIN')" id="tab-JOIN" class="student-only flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-indigo-600 text-white">
           <i data-lucide="gamepad-2" class="w-4 h-4"></i> Join Quiz
         </button>
-        <button onclick="switchTab('DISCOVER')" id="tab-DISCOVER" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
-          <i data-lucide="compass" class="w-4 h-4"></i> Discover
+        <button onclick="switchTab('HISTORY')" id="tab-HISTORY" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
+          <i data-lucide="history" class="w-4 h-4"></i> Quiz History
         </button>
-        <button onclick="switchTab('LEARN')" id="tab-LEARN" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
-          <i data-lucide="book-open" class="w-4 h-4"></i> Learn
+        <button onclick="switchTab('SCORING')" id="tab-SCORING" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
+          <i data-lucide="award" class="w-4 h-4"></i> Live Scoring
         </button>
         <button onclick="switchTab('PRESENT')" id="tab-PRESENT" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
-          <i data-lucide="presentation" class="w-4 h-4"></i> Present (Host)
+          <i data-lucide="presentation" class="w-4 h-4"></i> Present Host
         </button>
         <button onclick="switchTab('MAKE')" id="tab-MAKE" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="file-pen-line" class="w-4 h-4"></i> Make (Create)
+        </button>
+        <button onclick="switchTab('SETTINGS')" id="tab-SETTINGS" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
+          <i data-lucide="settings" class="w-4 h-4"></i> Settings
+        </button>
+        <button onclick="handleAdminLogout()" id="tab-LOGOUT" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-red-600 hover:bg-red-50 hover:text-red-700">
+          <i data-lucide="log-out" class="w-4 h-4"></i> Logout
         </button>
       </nav>
 
@@ -108,68 +114,37 @@ session_start();
       </div>
     </div>
 
-    <!-- DISCOVER TAB VIEW -->
-    <div id="panel-DISCOVER" class="tab-panel hidden space-y-6">
-      <div>
-        <h2 class="font-sans text-2xl font-extrabold text-slate-900">Discover Quizzes</h2>
-        <p class="text-slate-500 text-sm">Explore placement training resources, public coding challenges, and mock quizzes.</p>
+    <!-- HISTORY TAB VIEW -->
+    <div id="panel-HISTORY" class="tab-panel hidden space-y-6">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="font-sans text-2xl font-extrabold text-slate-900">Quiz Session History</h2>
+          <p class="text-slate-500 text-sm">Review completed classrooms, host pins, participant counts, and final rankings.</p>
+        </div>
+        <button onclick="loadHistorySessions()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2.5 px-4 rounded-xl border border-indigo-200 text-xs flex items-center gap-1.5 transition-colors cursor-pointer">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i> Reload History
+        </button>
       </div>
       
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white border border-slate-200 rounded-xl p-6 space-y-4 hover:shadow-md transition-all">
-          <span class="text-xs bg-purple-50 text-purple-600 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Frontend</span>
-          <h3 class="font-sans font-bold text-slate-900 text-lg leading-tight">React & JavaScript Closures</h3>
-          <p class="text-slate-500 text-xs leading-relaxed">Examines hook dependency arrays, scopes, closures, memory allocation, and virtual DOM processes.</p>
-          <div class="flex justify-between items-center pt-2">
-            <span class="text-[10px] font-bold text-slate-400">3 Qs | Medium</span>
-            <button onclick="playDirect('123456')" class="text-xs text-indigo-600 font-bold hover:underline">Play Now &rarr;</button>
-          </div>
-        </div>
-
-        <div class="bg-white border border-slate-200 rounded-xl p-6 space-y-4 hover:shadow-md transition-all">
-          <span class="text-xs bg-cyan-50 text-cyan-600 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Databases</span>
-          <h3 class="font-sans font-bold text-slate-900 text-lg leading-tight">SQL Joins & Grouping</h3>
-          <p class="text-slate-500 text-xs leading-relaxed">Covers normalization structures, index constraints, outer joins, transaction locking patterns, and subqueries.</p>
-          <div class="flex justify-between items-center pt-2">
-            <span class="text-[10px] font-bold text-slate-400">8 Qs | Hard</span>
-            <button onclick="playDirect('123456')" class="text-xs text-indigo-600 font-bold hover:underline">Play Now &rarr;</button>
-          </div>
-        </div>
-
-        <div class="bg-white border border-slate-200 rounded-xl p-6 space-y-4 hover:shadow-md transition-all">
-          <span class="text-xs bg-amber-50 text-amber-600 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Web Security</span>
-          <h3 class="font-sans font-bold text-slate-900 text-lg leading-tight">OAuth2 & JWT Token Chains</h3>
-          <p class="text-slate-500 text-xs leading-relaxed">Questions covering secure token exchanges, CSRF prevention mechanisms, cryptographic signatures, and auth cookies.</p>
-          <div class="flex justify-between items-center pt-2">
-            <span class="text-[10px] font-bold text-slate-400">10 Qs | Hard</span>
-            <button onclick="playDirect('123456')" class="text-xs text-indigo-600 font-bold hover:underline">Play Now &rarr;</button>
-          </div>
-        </div>
+      <div id="history-sessions-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Dynamic history loaded here -->
       </div>
     </div>
 
-    <!-- LEARN TAB VIEW -->
-    <div id="panel-LEARN" class="tab-panel hidden space-y-6">
-      <div>
-        <h2 class="font-sans text-2xl font-extrabold text-slate-900">Placement Prep Academy</h2>
-        <p class="text-slate-500 text-sm">Follow structured learning tracks designed to ace placement rounds.</p>
+    <!-- SCORING TAB VIEW -->
+    <div id="panel-SCORING" class="tab-panel hidden space-y-6">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="font-sans text-2xl font-extrabold text-slate-900">Live Scoring Dashboard</h2>
+          <p class="text-slate-500 text-sm">Monitor all active quiz sessions and check live progress in real-time.</p>
+        </div>
+        <button onclick="loadLiveScoringSessions()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2.5 px-4 rounded-xl border border-indigo-200 text-xs flex items-center gap-1.5 transition-colors cursor-pointer">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i> Reload Live List
+        </button>
       </div>
 
-      <div class="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col md:flex-row gap-8 items-center shadow-sm">
-        <div class="p-6 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100">
-          <i data-lucide="book-open" class="w-12 h-12"></i>
-        </div>
-        <div class="space-y-3 flex-grow">
-          <h3 class="font-sans text-xl font-bold text-slate-900">Interactive Practice Loops</h3>
-          <p class="text-slate-600 text-sm leading-relaxed">
-            Train your skills at your own pace! Explore pre-configured coding tests, answer sample placement question pools, and receive instant AI feedback recommendations.
-          </p>
-          <div>
-            <button onclick="playDirect('123456')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-colors cursor-pointer">
-              Start Practice Mode
-            </button>
-          </div>
-        </div>
+      <div id="scoring-sessions-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Active live sessions loaded here -->
       </div>
     </div>
 
@@ -309,6 +284,107 @@ session_start();
       </div>
     </div>
 
+    <!-- SETTINGS TAB VIEW -->
+    <div id="panel-SETTINGS" class="tab-panel hidden space-y-6">
+      <div>
+        <h2 class="font-sans text-2xl font-extrabold text-slate-900">Platform Settings</h2>
+        <p class="text-slate-500 text-sm">Configure background music, voice files, audio toggles, and system data resets.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Left Side: Music Settings -->
+        <div class="md:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+          <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+            <i data-lucide="music" class="w-5 h-5 text-indigo-600"></i> Audio Customization
+          </h3>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1">
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Starting Music (Lobby/Launch)</label>
+              <select id="settings-start-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
+                <option value="assets/audio/chalo.mp3">Chalo Vocal (KBC)</option>
+                <option value="assets/audio/kbc_intro.webm">KBC Intro Theme</option>
+                <option value="assets/audio/kbc_music.webm">KBC Classic Background</option>
+              </select>
+            </div>
+            
+            <div class="space-y-1">
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Second Music (Active Question)</label>
+              <select id="settings-question-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
+                <option value="assets/audio/kbc_question.mp3">KBC Question Tension Music</option>
+                <option value="assets/audio/kbc_music.webm">KBC Classic Background</option>
+                <option value="assets/audio/kbc_intro.webm">KBC Intro Theme</option>
+              </select>
+            </div>
+
+            <div class="space-y-1">
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Lock-in Sound (Student Submission)</label>
+              <select id="settings-locked-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
+                <option value="assets/audio/kbc_locked.mp3">KBC Answer Locked-In</option>
+                <option value="assets/audio/chalo.mp3">Chalo Vocal (KBC)</option>
+              </select>
+            </div>
+
+            <div class="space-y-1">
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Wrong Answer Sound</label>
+              <select id="settings-wrong-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
+                <option value="assets/audio/kbc_wrong.mp3">KBC Wrong Answer</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between border-t border-slate-100 pt-4">
+            <span class="text-xs text-slate-500 font-semibold">Volume Mute Override</span>
+            <div class="flex items-center gap-2">
+              <button onclick="toggleMute()" id="settings-mute-btn" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-750 font-bold text-xs px-4 py-2.5 rounded-xl border border-indigo-200 flex items-center gap-1.5 cursor-pointer transition-colors">
+                <i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i> Sound Active
+              </button>
+            </div>
+          </div>
+
+          <!-- Import Audio Section -->
+          <div class="border-t border-slate-100 pt-4 space-y-3">
+            <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="upload-cloud" class="w-4 h-4 text-indigo-600"></i> Import Custom Audio File
+            </h4>
+            <div class="flex flex-col sm:flex-row gap-3 items-center">
+              <input type="file" id="import-audio-file" accept="audio/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" />
+              <button onclick="handleImportAudio()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-sm whitespace-nowrap">
+                <i data-lucide="upload" class="w-4 h-4"></i> Upload Song
+              </button>
+            </div>
+            <p class="text-[10px] text-slate-400">Supported formats: MP3, WAV, WEBM, OGG. Uploaded files will immediately become selectable in the dropdowns above.</p>
+          </div>
+
+          <div class="pt-2">
+            <button onclick="saveSettings()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md">
+              <i data-lucide="save" class="w-4 h-4"></i> Save & Apply Audio Settings
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Side: DB Resets and Telemetry stats -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-6">
+          <div class="space-y-5">
+            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+              <i data-lucide="shield-alert" class="w-5 h-5 text-red-500"></i> Platform Maintenance
+            </h3>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              Use these options to wipe live sessions, remove registered guest student rosters, clear answer response logs, and reset system status back to blank.
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <button onclick="resetPlatformData()" class="w-full bg-red-50 hover:bg-red-100 border border-red-200 text-red-650 font-black py-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer">
+              <i data-lucide="trash-2" class="w-4.5 h-4.5"></i> Clear Session Logs & Scores
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- ADMIN TAB VIEW -->
     <div id="panel-ADMIN" class="tab-panel hidden w-full py-12">
       <!-- Login View -->
@@ -393,12 +469,14 @@ session_start();
     // Active Tab Navigation
     function switchTab(tabId) {
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-      document.getElementById('panel-' + tabId).classList.remove('hidden');
+      const targetPanel = document.getElementById('panel-' + tabId);
+      if (targetPanel) targetPanel.classList.remove('hidden');
 
       // Update Nav Class styles
       document.querySelectorAll('#nav-tabs button').forEach(btn => {
+        if (btn.id === 'tab-LOGOUT') return;
         btn.classList.remove('bg-indigo-600', 'text-white');
-        btn.classList.add('text-slate-600', 'hover:bg-slate-100');
+        btn.classList.add('text-slate-650', 'hover:bg-slate-100');
       });
       const activeBtn = document.getElementById('tab-' + tabId);
       if (activeBtn) {
@@ -408,6 +486,12 @@ session_start();
 
       if (tabId === 'PRESENT') {
         loadTemplates();
+      } else if (tabId === 'HISTORY') {
+        loadHistorySessions();
+      } else if (tabId === 'SCORING') {
+        loadLiveScoringSessions();
+      } else if (tabId === 'SETTINGS') {
+        loadAudioAndSettings();
       }
     }
 
@@ -416,13 +500,234 @@ session_start();
     function toggleMute() {
       muted = !muted;
       sound.setMute(muted);
+      localStorage.setItem('settings_music_enabled', muted ? 'false' : 'true');
+      
       const btn = document.getElementById('mute-btn');
-      if (muted) {
-        btn.innerHTML = `<i data-lucide="volume-x" class="w-4 h-4 text-red-500"></i>`;
-      } else {
-        btn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i>`;
+      if (btn) {
+        if (muted) {
+          btn.innerHTML = `<i data-lucide="volume-x" class="w-4 h-4 text-red-500"></i>`;
+        } else {
+          btn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i>`;
+        }
+      }
+      
+      const setMuteBtn = document.getElementById('settings-mute-btn');
+      if (setMuteBtn) {
+        if (muted) {
+          setMuteBtn.innerHTML = `<i data-lucide="volume-x" class="w-4 h-4 text-red-500"></i> Sound Muted`;
+          setMuteBtn.className = "bg-red-50 hover:bg-red-100 text-red-650 font-bold text-xs px-4 py-2.5 rounded-xl border border-red-200 flex items-center gap-1.5 cursor-pointer transition-colors";
+        } else {
+          setMuteBtn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i> Sound Active`;
+          setMuteBtn.className = "bg-indigo-50 hover:bg-indigo-100 text-indigo-750 font-bold text-xs px-4 py-2.5 rounded-xl border border-indigo-200 flex items-center gap-1.5 cursor-pointer transition-colors";
+        }
       }
       lucide.createIcons();
+    }
+
+    // Settings Helpers
+    function loadAudioAndSettings() {
+      fetch('api.php?action=get_audio_files')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.files) {
+            const dropdownIds = ['settings-start-music', 'settings-question-music', 'settings-locked-music', 'settings-wrong-music'];
+            dropdownIds.forEach(id => {
+              const dropdown = document.getElementById(id);
+              if (!dropdown) return;
+              const currentValue = dropdown.value || localStorage.getItem(id.replace(/-/g, '_')) || '';
+              dropdown.innerHTML = '';
+              
+              // Prepend synthesized options depending on category
+              if (id === 'settings-question-music') {
+                const optSynth = document.createElement('option');
+                optSynth.value = 'SYNTH_KAHOOT_QUESTION';
+                optSynth.textContent = 'Kahoot Style (Synthesized)';
+                dropdown.appendChild(optSynth);
+              } else if (id === 'settings-locked-music') {
+                const optSynth = document.createElement('option');
+                optSynth.value = 'SYNTH_KAHOOT_LOCKED';
+                optSynth.textContent = 'Kahoot Pop (Synthesized)';
+                dropdown.appendChild(optSynth);
+              } else if (id === 'settings-wrong-music') {
+                const optSynth = document.createElement('option');
+                optSynth.value = 'SYNTH_KAHOOT_WRONG';
+                optSynth.textContent = 'Retro Buzzer (Synthesized)';
+                dropdown.appendChild(optSynth);
+              }
+              
+              data.files.forEach(file => {
+                const opt = document.createElement('option');
+                opt.value = file.path;
+                opt.textContent = file.name;
+                dropdown.appendChild(opt);
+              });
+              
+              if (currentValue && [...dropdown.options].some(o => o.value === currentValue)) {
+                dropdown.value = currentValue;
+              }
+            });
+          }
+          loadSettings();
+        })
+        .catch(err => {
+          console.error('Failed to load audio files', err);
+          loadSettings();
+        });
+    }
+
+    function handleImportAudio() {
+      const fileInput = document.getElementById('import-audio-file');
+      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert('Please select an audio file first.');
+        return;
+      }
+      
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('audio_file', file);
+      
+      fetch('api.php?action=upload_audio', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert('Audio file imported successfully!');
+          fileInput.value = '';
+          loadAudioAndSettings();
+        } else {
+          alert('Failed to import audio: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert('An error occurred while uploading.');
+      });
+    }
+
+    function loadSettings() {
+      const start = localStorage.getItem('settings_start_music') || 'assets/audio/chalo.mp3';
+      const question = localStorage.getItem('settings_question_music') || 'SYNTH_KAHOOT_QUESTION';
+      const locked = localStorage.getItem('settings_locked_music') || 'SYNTH_KAHOOT_LOCKED';
+      const wrong = localStorage.getItem('settings_wrong_music') || 'SYNTH_KAHOOT_WRONG';
+      
+      document.getElementById('settings-start-music').value = start;
+      document.getElementById('settings-question-music').value = question;
+      document.getElementById('settings-locked-music').value = locked;
+      document.getElementById('settings-wrong-music').value = wrong;
+
+      const muteBtn = document.getElementById('settings-mute-btn');
+      if (localStorage.getItem('settings_music_enabled') === 'false') {
+        muteBtn.innerHTML = `<i data-lucide="volume-x" class="w-4 h-4 text-red-500"></i> Sound Muted`;
+        muteBtn.className = "bg-red-50 hover:bg-red-100 text-red-650 font-bold text-xs px-4 py-2.5 rounded-xl border border-red-200 flex items-center gap-1.5 cursor-pointer transition-colors";
+      } else {
+        muteBtn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i> Sound Active`;
+        muteBtn.className = "bg-indigo-50 hover:bg-indigo-100 text-indigo-750 font-bold text-xs px-4 py-2.5 rounded-xl border border-indigo-200 flex items-center gap-1.5 cursor-pointer transition-colors";
+      }
+      lucide.createIcons();
+    }
+
+    function saveSettings() {
+      const start = document.getElementById('settings-start-music').value;
+      const question = document.getElementById('settings-question-music').value;
+      const locked = document.getElementById('settings-locked-music').value;
+      const wrong = document.getElementById('settings-wrong-music').value;
+
+      localStorage.setItem('settings_start_music', start);
+      localStorage.setItem('settings_question_music', question);
+      localStorage.setItem('settings_locked_music', locked);
+      localStorage.setItem('settings_wrong_music', wrong);
+
+      sound.reloadTracks();
+      alert('Audio settings saved and applied successfully!');
+    }
+
+    function resetPlatformData() {
+      if (!confirm("Are you sure you want to clear all sessions, scores, and candidate lists? This cannot be undone.")) return;
+      fetch('api.php?action=clear_data')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            alert("Platform logs and active rooms reset successfully!");
+            switchTab('SETTINGS');
+          } else {
+            alert("Failed to reset: " + (data.error || "Unknown error"));
+          }
+        });
+    }
+
+    function loadLiveScoringSessions() {
+      fetch('api.php?action=get_live_sessions')
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById('scoring-sessions-list');
+          container.innerHTML = '';
+          const activeSessions = data.filter(s => s.status === 'LOBBY' || s.status === 'ACTIVE_QUESTION');
+          if (activeSessions.length === 0) {
+            container.innerHTML = '<p class="text-sm text-slate-500 col-span-2 italic">No active live sessions found right now.</p>';
+            return;
+          }
+          activeSessions.forEach(s => {
+            container.innerHTML += `
+              <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow relative">
+                <div class="flex justify-between items-start mb-2">
+                  <h3 class="font-bold text-slate-900">${s.quiz_title}</h3>
+                  <span class="text-[9px] bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-0.5 rounded font-bold uppercase">${s.status}</span>
+                </div>
+                <div class="flex gap-4 text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4">
+                  <span>PIN: <span class="text-indigo-650 font-mono">${s.pin_code}</span></span>
+                </div>
+                <div class="flex gap-2">
+                  <a href="host_arena.php?pin=${s.pin_code}" target="_blank" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm">
+                    <i data-lucide="presentation" class="w-3.5 h-3.5"></i> Open Presenter Panel
+                  </a>
+                </div>
+              </div>
+            `;
+          });
+          lucide.createIcons();
+        });
+    }
+
+    function loadHistorySessions() {
+      fetch('api.php?action=get_live_sessions')
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById('history-sessions-list');
+          container.innerHTML = '';
+          const completedSessions = data.filter(s => s.status === 'FINISHED');
+          if (completedSessions.length === 0) {
+            container.innerHTML = '<p class="text-sm text-slate-500 col-span-2 italic">No past completed sessions found.</p>';
+            return;
+          }
+          completedSessions.forEach(s => {
+            const leaders = s.leaderboard.map((l, i) => `
+              <div class="flex justify-between text-xs py-1.5 border-b border-slate-100 last:border-0 font-medium">
+                <span class="text-slate-700 font-bold">${i+1}. ${l.name}</span>
+                <span class="text-indigo-650 font-mono font-bold">${l.score} pts</span>
+              </div>
+            `).join('');
+
+            container.innerHTML += `
+              <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex justify-between items-start mb-2">
+                  <h3 class="font-bold text-slate-900">${s.quiz_title}</h3>
+                  <span class="text-[9px] bg-slate-100 text-slate-650 border border-slate-200 px-2 py-0.5 rounded font-bold uppercase">${s.status}</span>
+                </div>
+                <div class="flex gap-4 text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4">
+                  <span>PIN: <span class="text-indigo-650 font-mono">${s.pin_code}</span></span>
+                  <span>Completed at: ${new Date(s.updated_at).toLocaleDateString()}</span>
+                </div>
+                <div class="bg-slate-50 rounded-lg border border-slate-100 p-4">
+                  <h4 class="text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-wider flex items-center gap-1.5"><i data-lucide="trophy" class="w-3.5 h-3.5 text-yellow-500"></i> Final Standings</h4>
+                  ${leaders || '<p class="text-xs text-slate-400 italic">No participant records</p>'}
+                </div>
+              </div>
+            `;
+          });
+          lucide.createIcons();
+        });
     }
 
     // Join Flow Scripts
@@ -768,16 +1073,15 @@ session_start();
         document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
         document.getElementById('admin-login-view').classList.add('hidden');
         document.getElementById('admin-register-view').classList.add('hidden');
-        document.getElementById('admin-dashboard-view').classList.remove('hidden');
-        switchTab('ADMIN');
-        loadAdminSessions();
+        document.getElementById('panel-ADMIN').classList.add('hidden');
+        switchTab('PRESENT');
       } else {
         // Show student tabs, hide admin tabs
         document.querySelectorAll('.student-only').forEach(el => el.classList.remove('hidden'));
         document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
         document.getElementById('admin-login-view').classList.remove('hidden');
         document.getElementById('admin-register-view').classList.add('hidden');
-        document.getElementById('admin-dashboard-view').classList.add('hidden');
+        document.getElementById('panel-ADMIN').classList.add('hidden');
         switchTab('JOIN');
       }
     }
@@ -885,6 +1189,18 @@ session_start();
     }
 
     // Boot Init
+    const savedMute = localStorage.getItem('settings_music_enabled');
+    if (savedMute === 'false') {
+      muted = true;
+      sound.setMute(true);
+      const btn = document.getElementById('mute-btn');
+      if (btn) btn.innerHTML = `<i data-lucide="volume-x" class="w-4 h-4 text-red-500"></i>`;
+    } else {
+      muted = false;
+      sound.setMute(false);
+      const btn = document.getElementById('mute-btn');
+      if (btn) btn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i>`;
+    }
     checkAuth();
     lucide.createIcons();
   </script>

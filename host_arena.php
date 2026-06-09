@@ -129,10 +129,10 @@
       <!-- Top Metrics Bar -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
           <div class="glass-panel p-4 rounded-2xl flex items-center gap-4">
-              <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600"><i data-lucide="hash"></i></div>
+              <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600"><i data-lucide="activity"></i></div>
               <div>
-                  <p class="text-[10px] uppercase font-bold text-slate-500">Current Question</p>
-                  <p class="text-xl font-black text-slate-800" id="dash-q-num">1</p>
+                  <p class="text-[10px] uppercase font-bold text-slate-500">Quiz Completion</p>
+                  <p class="text-xl font-black text-slate-800" id="dash-completion-rate">0%</p>
               </div>
           </div>
           <div class="glass-panel p-4 rounded-2xl flex items-center gap-4">
@@ -150,25 +150,21 @@
               </div>
           </div>
           <div class="glass-panel p-4 rounded-2xl flex items-center justify-center">
-              <button onclick="revealAnswer()" class="w-full h-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2 px-4 rounded-xl text-sm transition-all shadow-md transform active:scale-95">
-                End & Reveal
+              <button onclick="revealAnswer()" class="w-full h-full bg-red-650 hover:bg-red-750 text-white font-black py-2 px-4 rounded-xl text-sm transition-all shadow-md transform active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer">
+                <i data-lucide="power" class="w-4 h-4"></i> End & Reveal Podium
               </button>
           </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Center Left: Question and Options -->
+        <!-- Center Left: Live Progress Tracker -->
         <div class="lg:col-span-2 space-y-6">
-            <div class="p-8 rounded-[2rem] glass-panel text-center shadow-sm">
-                <h1 class="font-sans text-3xl font-black text-slate-900 leading-tight" id="active-q-text">
-                Loading Question text...
-                </h1>
-            </div>
-
-            <div class="p-8 rounded-[2rem] glass-panel shadow-sm">
-                <h3 class="text-xs uppercase font-black text-slate-400 mb-4 tracking-wider flex items-center gap-2"><i data-lucide="bar-chart-2" class="w-4 h-4"></i> Option-wise Live Stats</h3>
-                <div id="option-stats-box" class="space-y-4">
-                    <!-- Option bars -->
+            <div class="p-8 rounded-[2rem] glass-panel shadow-sm flex flex-col h-full min-h-[500px]">
+                <h3 class="text-xs uppercase font-black text-slate-400 mb-6 tracking-wider flex items-center gap-2">
+                  <i data-lucide="activity" class="w-4 h-4 text-indigo-500"></i> Live Student Progress Tracker
+                </h3>
+                <div id="student-progress-box" class="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-grow">
+                    <p class="text-sm text-slate-400 italic text-center py-8">Waiting for candidates to join...</p>
                 </div>
             </div>
         </div>
@@ -405,7 +401,8 @@
         loadPodiumStandings();
         clearInterval(intervalId); // stop polling on completion
       } else {
-        sound.stopAll();
+        const forceStop = (newState === 'SHOWING_LEADERBOARD');
+        sound.stopAll(forceStop);
       }
 
       // Initialize State View
@@ -455,27 +452,29 @@
 
     // Active Question Helpers
     function refreshActiveQuestion(data) {
-      const q = data.current_question;
-      if (!q) return;
-
-      document.getElementById('active-q-text').innerText = q.text;
-      document.getElementById('dash-q-num').innerText = data.current_question_index + 1;
-      document.getElementById('countdown-text').innerText = `${data.time_left}s Left`;
-
-      // Play clock tick beats
-      sound.playCountdown(data.time_left, data.current_question_index);
+      // Session Time Elapsed Count-Up Timer in the header
+      const elapsed = data.active_question_start ? (Math.floor(Date.now() / 1000) - data.active_question_start) : 0;
+      const mins = String(Math.floor(Math.max(0, elapsed) / 60)).padStart(2, '0');
+      const secs = String(Math.max(0, elapsed) % 60).padStart(2, '0');
+      document.getElementById('countdown-text').innerText = `Elapsed: ${mins}:${secs}`;
 
       // Fetch Telemetry Admin Dashboard data
       fetch('api.php?action=get_telemetry&pin_code=' + pin)
         .then(res => res.json())
         .then(telemetry => {
-          
-          document.getElementById('dash-total-players').innerText = telemetry.total_players || 0;
-          
-          const answersThisRound = telemetry.players.filter(t => t.hasAnswered).length;
-          document.getElementById('dash-total-answers').innerText = answersThisRound;
+          if (telemetry.error) return;
 
-          // Roster stand list (Top 10)
+          document.getElementById('dash-total-players').innerText = telemetry.total_players || 0;
+          document.getElementById('dash-total-answers').innerText = telemetry.total_answers || 0;
+
+          // Overall completion rate calculation
+          const totalPossibleAnswers = (telemetry.total_players || 0) * (telemetry.total_questions || 1);
+          const completionPct = totalPossibleAnswers > 0 
+            ? Math.round((telemetry.total_answers / totalPossibleAnswers) * 100) 
+            : 0;
+          document.getElementById('dash-completion-rate').innerText = `${completionPct}%`;
+
+          // Render Live Leaderboard (Top 10)
           const top10Players = telemetry.players.slice(0, 10);
           const box = document.getElementById('live-scores-box');
           box.innerHTML = top10Players.map((t, idx) => `
@@ -486,40 +485,70 @@
               </div>
               <div class="flex items-center gap-3">
                 <span class="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">${t.score}</span>
-                <span class="text-[10px] px-2 py-1 rounded-md font-bold uppercase ${
-                  t.hasAnswered ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'
+                <span class="text-[10px] px-2.5 py-1 rounded-lg font-bold uppercase ${
+                  t.current_question_index >= telemetry.total_questions 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-indigo-50 text-indigo-650'
                 }">
-                  ${t.hasAnswered ? '✓' : '...'}
+                  ${t.current_question_index >= telemetry.total_questions ? 'Finished' : `Q${t.current_question_index + 1}`}
                 </span>
               </div>
             </div>
           `).join('');
 
-          // Option Stats (only for MCQ/TF)
-          if (q.type !== 'CODING_CHALLENGE' && telemetry.option_counts) {
-              const statsBox = document.getElementById('option-stats-box');
-              let totalPicks = telemetry.option_counts.reduce((sum, opt) => sum + parseInt(opt.pick_count), 0);
-              
-              const colors = ['bg-blue-500', 'bg-amber-500', 'bg-emerald-500', 'bg-purple-500'];
-              
-              statsBox.innerHTML = telemetry.option_counts.map((opt, idx) => {
-                  let pct = totalPicks > 0 ? Math.round((parseInt(opt.pick_count) / totalPicks) * 100) : 0;
-                  let color = colors[idx % colors.length];
-                  return `
-                  <div class="space-y-1 text-left">
-                      <div class="flex justify-between text-xs font-bold text-slate-600">
-                          <span class="truncate max-w-[80%]">${String.fromCharCode(65 + idx)}: ${opt.text}</span>
-                          <span>${opt.pick_count} (${pct}%)</span>
-                      </div>
-                      <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
-                          <div class="bar-chart-fill ${color} h-3 rounded-full" style="width: ${pct}%"></div>
-                      </div>
-                  </div>
-                  `;
-              }).join('');
+          // Render Live Progress Feed (All Players)
+          const progressBox = document.getElementById('student-progress-box');
+          if (telemetry.players.length === 0) {
+            progressBox.innerHTML = `<p class="text-sm text-slate-400 italic text-center py-8">Waiting for candidates to join...</p>`;
           } else {
-             document.getElementById('option-stats-box').innerHTML = `<p class="text-xs text-slate-400 italic">No option stats for coding challenge.</p>`;
+            progressBox.innerHTML = telemetry.players.map((t) => {
+              const total = telemetry.total_questions || 1;
+              const current = Math.min(t.current_question_index, total);
+              const pct = Math.round((current / total) * 100);
+              
+              const isFinished = t.current_question_index >= total;
+              const badgeClass = isFinished 
+                ? 'bg-green-100 text-green-700 border border-green-200' 
+                : 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+              const badgeText = isFinished ? 'Finished' : `Q${current + 1}/${total}`;
+              
+              const streakHtml = t.streak > 1 ? `<span class="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg font-bold font-mono">🔥 ${t.streak}</span>` : '';
+              
+              return `
+                <div class="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all">
+                  <div class="flex items-center gap-4 min-w-[180px]">
+                    <div>
+                      <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        ${t.name} ${streakHtml}
+                      </h4>
+                      <p class="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                        Score: <span class="text-indigo-650 font-mono">${t.score}</span> | Accuracy: <span class="text-green-600 font-mono">${t.correct_count}/${current}</span>
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <!-- Progress Bar -->
+                  <div class="flex-grow">
+                    <div class="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                      <span>Progress</span>
+                      <span>${pct}%</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200 shadow-inner">
+                      <div class="bg-gradient-to-r from-indigo-500 to-cyan-500 h-2.5 rounded-full bar-chart-fill" style="width: ${pct}%"></div>
+                    </div>
+                  </div>
+
+                  <!-- Status Badge -->
+                  <div class="flex items-center justify-end min-w-[90px]">
+                    <span class="text-xs px-3 py-1.5 rounded-xl font-black uppercase tracking-wider ${badgeClass}">
+                      ${badgeText}
+                    </span>
+                  </div>
+                </div>
+              `;
+            }).join('');
           }
+          lucide.createIcons();
         });
     }
 
@@ -630,6 +659,7 @@
 
     // Action Triggers
     function startQuiz() {
+      sound.playStartSequence();
       const fd = new FormData();
       fd.append('pin_code', pin);
       fetch('api.php?action=start_session', { method: 'POST', body: fd });
