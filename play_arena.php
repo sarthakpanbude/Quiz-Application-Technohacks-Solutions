@@ -364,15 +364,15 @@ try {
       if (data && data.is_correct !== undefined) {
          box.innerHTML = `
            <div class="text-center p-10 md:p-14 glass-panel rounded-[2rem] shadow-2xl space-y-6 transform transition-all animate-[scale-in_0.3s_ease-out]">
-             <div class="w-24 h-24 rounded-full flex items-center justify-center mx-auto text-5xl mb-6 shadow-xl ${data.is_correct ? 'bg-gradient-to-br from-green-400 to-green-600 text-white shadow-green-500/40' : 'bg-gradient-to-br from-red-400 to-red-600 text-white shadow-red-500/40'}">
-               ${data.is_correct ? '✓' : '✗'}
+             <div class="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center mx-auto text-5xl mb-6 shadow-xl text-indigo-600">
+               <i data-lucide="lock" class="w-10 h-10"></i>
              </div>
-             <h3 class="font-black text-3xl md:text-4xl text-slate-900">Answer Submitted!</h3>
-             <div class="text-2xl font-black px-6 py-3 rounded-2xl inline-block ${data.is_correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                ${data.is_correct ? 'Correct Answer!' : 'Incorrect Answer'}
+             <h3 class="font-black text-3xl md:text-4xl text-slate-900">Answer Locked In!</h3>
+             <div class="text-xl font-bold px-6 py-3 rounded-2xl inline-block bg-slate-100 text-slate-700 border border-slate-200">
+                Waiting for the results...
              </div>
              <p class="text-md font-semibold text-slate-500 mt-8 animate-pulse flex items-center justify-center gap-2">
-                <i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Waiting for next question...
+                <i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Host will reveal answer shortly...
              </p>
            </div>
          `;
