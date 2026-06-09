@@ -369,9 +369,8 @@ try {
              </div>
              <h3 class="font-black text-3xl md:text-4xl text-slate-900">Answer Submitted!</h3>
              <div class="text-2xl font-black px-6 py-3 rounded-2xl inline-block ${data.is_correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                ${data.is_correct ? '+' + data.score_earned + ' Points (Rank: #' + data.answer_rank + ')' : '0 Points'}
+                ${data.is_correct ? 'Correct Answer!' : 'Incorrect Answer'}
              </div>
-             <p class="text-xl font-bold text-slate-700 mt-4">Total Score: ${data.total_score}</p>
              <p class="text-md font-semibold text-slate-500 mt-8 animate-pulse flex items-center justify-center gap-2">
                 <i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Waiting for next question...
              </p>
@@ -438,7 +437,7 @@ try {
             const score = data.student_score;
             if (score.isCorrect) {
               banner.className = "p-5 rounded-2xl text-center border-2 font-black text-xl bg-green-500/10 text-green-700 border-green-500/30 backdrop-blur-md";
-              banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="check-circle" class="w-6 h-6"></i> Correct! +${score.scoreEarned} Points</span>`;
+              banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="check-circle" class="w-6 h-6"></i> Correct!</span>`;
             } else {
               banner.className = "p-5 rounded-2xl text-center border-2 font-black text-xl bg-red-500/10 text-red-700 border-red-500/30 backdrop-blur-md";
               banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="x-circle" class="w-6 h-6"></i> Incorrect Answer</span>`;
@@ -452,17 +451,7 @@ try {
 
           // Rankings
           const ranksBox = document.getElementById('ranking-list-box');
-          ranksBox.innerHTML = data.leaderboard.map((row, idx) => `
-            <div class="flex justify-between items-center p-4 rounded-xl bg-white/60 border border-white shadow-sm hover:shadow-md transition-shadow">
-              <div class="flex items-center gap-4">
-                <span class="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-black text-sm">#${idx + 1}</span>
-                <span class="font-bold text-slate-800 text-lg">${row.name}</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg font-black text-sm">${row.score} pts</span>
-              </div>
-            </div>
-          `).join('');
+          ranksBox.innerHTML = `<p class="text-slate-500 font-semibold italic text-center py-4">Look at the presenter screen for full live rankings!</p>`;
           lucide.createIcons();
         });
     }

@@ -453,12 +453,8 @@ try {
 
             if ($isCorrect) {
                 $streak = intval($participant['streak']) + 1;
-                // Position-based scoring: count correct answers already submitted for this question
-                $stmtRank = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND question_id = ? AND is_correct = 1");
-                $stmtRank->execute([$session['id'], $questionId]);
-                $correctRank = intval($stmtRank->fetchColumn()); // 0-based: 0 means first correct
-                // 1st=10, 2nd=9 ... 10th+=1
-                $scoreEarned = max(1, 10 - $correctRank);
+                $scoreEarned = 1;
+                $correctRank = 0; // Keeping variable for answer_rank compatibility
             } else {
                 $streak = 0;
                 $scoreEarned = 0;
