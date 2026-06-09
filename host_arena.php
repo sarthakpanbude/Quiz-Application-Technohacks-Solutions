@@ -490,22 +490,30 @@
           // Roster stand list (Top 10)
           const top10Players = telemetry.players.slice(0, 10);
           const box = document.getElementById('live-scores-box');
-          box.innerHTML = top10Players.map((t, idx) => `
-            <div class="flex justify-between items-center p-3 rounded-xl bg-white border border-slate-100 shadow-sm transition-all">
-              <div class="flex items-center gap-3">
-                <span class="w-6 text-center font-bold text-slate-400 text-xs">#${idx+1}</span>
-                <span class="text-sm font-bold text-slate-800">${t.name}</span>
+          box.innerHTML = top10Players.map((t, idx) => {
+              let rankStyle = "bg-white border-slate-100 text-slate-500 shadow-sm";
+              let textStyle = "text-slate-800";
+              let iconStyle = "bg-slate-100 text-slate-600";
+              let crown = "";
+              if (idx === 0) { rankStyle = "bg-gradient-to-r from-yellow-100 to-yellow-50 border-yellow-300 shadow-[0_4px_15px_rgba(250,204,21,0.2)]"; textStyle = "text-yellow-700 font-black"; iconStyle = "bg-yellow-400 text-yellow-900"; crown = "👑 "; }
+              else if (idx === 1) { rankStyle = "bg-gradient-to-r from-slate-100 to-slate-50 border-slate-300 shadow-md"; textStyle = "text-slate-700 font-bold"; iconStyle = "bg-slate-300 text-slate-700"; }
+              else if (idx === 2) { rankStyle = "bg-gradient-to-r from-orange-100 to-orange-50 border-orange-300 shadow-md"; textStyle = "text-orange-800 font-bold"; iconStyle = "bg-orange-300 text-orange-900"; }
+
+              return `
+              <div class="flex justify-between items-center p-3.5 rounded-2xl border transition-all transform hover:scale-[1.02] ${rankStyle}">
+                <div class="flex items-center gap-3">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs ${iconStyle}">${idx+1}</span>
+                  <span class="text-sm md:text-base ${textStyle}">${crown}${t.name}</span>
+                  ${t.streak > 1 ? '<span class="px-2 py-0.5 rounded-full bg-red-100 border border-red-200 text-red-600 text-[10px] font-black animate-pulse flex items-center gap-1"><i data-lucide="flame" class="w-3 h-3"></i>' + t.streak + '</span>' : ''}
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="text-sm font-black text-indigo-700 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-xl border border-indigo-100 shadow-inner">${t.score}</span>
+                  <div class="relative w-8 h-8 rounded-full flex items-center justify-center ${t.hasAnswered ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]' : 'bg-slate-200 shadow-inner border border-slate-300'}">
+                    ${t.hasAnswered ? '<i data-lucide="check" class="w-5 h-5 text-white stroke-[3px]"></i>' : '<i data-lucide="loader" class="w-4 h-4 text-slate-400 animate-spin"></i>'}
+                  </div>
+                </div>
               </div>
-              <div class="flex items-center gap-3">
-                <span class="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">${t.score}</span>
-                <span class="text-[10px] px-2 py-1 rounded-md font-bold uppercase ${
-                  t.hasAnswered ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'
-                }">
-                  ${t.hasAnswered ? '✓' : '...'}
-                </span>
-              </div>
-            </div>
-          `).join('');
+            `}).join('');
 
           // Option Stats (only for MCQ/TF)
           if (q.type !== 'CODING_CHALLENGE' && telemetry.option_counts) {

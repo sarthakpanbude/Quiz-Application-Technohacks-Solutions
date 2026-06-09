@@ -154,7 +154,7 @@ try {
         
         <div class="text-center space-y-3 animate-[fade-in-down_1s_ease-out]">
             <h1 class="font-sans text-5xl md:text-7xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] tracking-tight">Quiz Complete!</h1>
-            <p class="text-indigo-200 text-xl font-medium">Here are the final results</p>
+            <div id="final-user-status" class="mt-4 text-indigo-200 text-xl font-medium">Here are the final results</div>
         </div>
 
         <!-- Top 3 Podium (Visual) -->
@@ -472,6 +472,15 @@ try {
       fetch('api.php?action=get_podium&pin_code=' + pin)
         .then(res => res.json())
         .then(rankings => {
+            // Setup User Win/Loss Banner
+            const myRankIndex = rankings.findIndex(r => r.name === username);
+            const statusDiv = document.getElementById('final-user-status');
+            if (myRankIndex >= 0 && myRankIndex < 3) {
+                statusDiv.innerHTML = `<span class="inline-block mt-2 bg-yellow-400 text-yellow-900 px-6 py-2 rounded-full font-black text-2xl md:text-3xl uppercase tracking-widest shadow-[0_0_30px_rgba(255,215,0,0.8)] animate-pulse">🎉 You are a WINNER! 🎉</span>`;
+            } else if (myRankIndex >= 0) {
+                statusDiv.innerHTML = `<span class="inline-block mt-2 bg-slate-700/80 text-slate-200 px-6 py-2 rounded-full font-bold text-xl uppercase tracking-widest border border-slate-500/50">Good Effort! You ranked #${myRankIndex + 1}</span>`;
+            }
+
             // Setup Total Players
             fetch('api.php?action=get_telemetry&pin_code=' + pin)
                 .then(r => r.json())

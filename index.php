@@ -38,17 +38,20 @@ session_start();
         <button onclick="switchTab('JOIN')" id="tab-JOIN" class="student-only flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-indigo-600 text-white">
           <i data-lucide="gamepad-2" class="w-4 h-4"></i> Join Quiz
         </button>
-        <button onclick="switchTab('DISCOVER')" id="tab-DISCOVER" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
-          <i data-lucide="compass" class="w-4 h-4"></i> Discover
+        <button onclick="switchTab('HISTORY')" id="tab-HISTORY" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
+          <i data-lucide="history" class="w-4 h-4"></i> Quiz History
         </button>
-        <button onclick="switchTab('LEARN')" id="tab-LEARN" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
-          <i data-lucide="book-open" class="w-4 h-4"></i> Learn
+        <button onclick="switchTab('LIVE')" id="tab-LIVE" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
+          <i data-lucide="activity" class="w-4 h-4"></i> Live Scoring
         </button>
         <button onclick="switchTab('PRESENT')" id="tab-PRESENT" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="presentation" class="w-4 h-4"></i> Present (Host)
         </button>
         <button onclick="switchTab('MAKE')" id="tab-MAKE" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="file-pen-line" class="w-4 h-4"></i> Make (Create)
+        </button>
+        <button onclick="switchTab('SETTINGS')" id="tab-SETTINGS" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
+          <i data-lucide="settings" class="w-4 h-4"></i> Settings
         </button>
       </nav>
 
@@ -108,68 +111,31 @@ session_start();
       </div>
     </div>
 
-    <!-- DISCOVER TAB VIEW -->
-    <div id="panel-DISCOVER" class="tab-panel hidden space-y-6">
+    <!-- HISTORY TAB VIEW -->
+    <div id="panel-HISTORY" class="tab-panel hidden space-y-6">
       <div>
-        <h2 class="font-sans text-2xl font-extrabold text-slate-900">Discover Quizzes</h2>
-        <p class="text-slate-500 text-sm">Explore placement training resources, public coding challenges, and mock quizzes.</p>
+        <h2 class="font-sans text-2xl font-extrabold text-slate-900">Quiz History</h2>
+        <p class="text-slate-500 text-sm">View past quiz winners and their scores.</p>
       </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white border border-slate-200 rounded-xl p-6 space-y-4 hover:shadow-md transition-all">
-          <span class="text-xs bg-purple-50 text-purple-600 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Frontend</span>
-          <h3 class="font-sans font-bold text-slate-900 text-lg leading-tight">React & JavaScript Closures</h3>
-          <p class="text-slate-500 text-xs leading-relaxed">Examines hook dependency arrays, scopes, closures, memory allocation, and virtual DOM processes.</p>
-          <div class="flex justify-between items-center pt-2">
-            <span class="text-[10px] font-bold text-slate-400">3 Qs | Medium</span>
-            <button onclick="playDirect('123456')" class="text-xs text-indigo-600 font-bold hover:underline">Play Now &rarr;</button>
-          </div>
-        </div>
-
-        <div class="bg-white border border-slate-200 rounded-xl p-6 space-y-4 hover:shadow-md transition-all">
-          <span class="text-xs bg-cyan-50 text-cyan-600 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Databases</span>
-          <h3 class="font-sans font-bold text-slate-900 text-lg leading-tight">SQL Joins & Grouping</h3>
-          <p class="text-slate-500 text-xs leading-relaxed">Covers normalization structures, index constraints, outer joins, transaction locking patterns, and subqueries.</p>
-          <div class="flex justify-between items-center pt-2">
-            <span class="text-[10px] font-bold text-slate-400">8 Qs | Hard</span>
-            <button onclick="playDirect('123456')" class="text-xs text-indigo-600 font-bold hover:underline">Play Now &rarr;</button>
-          </div>
-        </div>
-
-        <div class="bg-white border border-slate-200 rounded-xl p-6 space-y-4 hover:shadow-md transition-all">
-          <span class="text-xs bg-amber-50 text-amber-600 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Web Security</span>
-          <h3 class="font-sans font-bold text-slate-900 text-lg leading-tight">OAuth2 & JWT Token Chains</h3>
-          <p class="text-slate-500 text-xs leading-relaxed">Questions covering secure token exchanges, CSRF prevention mechanisms, cryptographic signatures, and auth cookies.</p>
-          <div class="flex justify-between items-center pt-2">
-            <span class="text-[10px] font-bold text-slate-400">10 Qs | Hard</span>
-            <button onclick="playDirect('123456')" class="text-xs text-indigo-600 font-bold hover:underline">Play Now &rarr;</button>
-          </div>
-        </div>
+      <div id="history-list" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+         <!-- Dynamic history loads here -->
       </div>
     </div>
 
-    <!-- LEARN TAB VIEW -->
-    <div id="panel-LEARN" class="tab-panel hidden space-y-6">
-      <div>
-        <h2 class="font-sans text-2xl font-extrabold text-slate-900">Placement Prep Academy</h2>
-        <p class="text-slate-500 text-sm">Follow structured learning tracks designed to ace placement rounds.</p>
+    <!-- LIVE TAB VIEW -->
+    <div id="panel-LIVE" class="tab-panel hidden space-y-6">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="font-sans text-2xl font-extrabold text-slate-900">Live Scoring & Results</h2>
+          <p class="text-slate-500 text-sm">Monitor active quizzes and their live leaderboards in real time.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+          <span class="text-xs font-black text-red-600 uppercase tracking-widest">Auto-Refreshing</span>
+        </div>
       </div>
-
-      <div class="bg-white border border-slate-200 rounded-2xl p-8 flex flex-col md:flex-row gap-8 items-center shadow-sm">
-        <div class="p-6 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100">
-          <i data-lucide="book-open" class="w-12 h-12"></i>
-        </div>
-        <div class="space-y-3 flex-grow">
-          <h3 class="font-sans text-xl font-bold text-slate-900">Interactive Practice Loops</h3>
-          <p class="text-slate-600 text-sm leading-relaxed">
-            Train your skills at your own pace! Explore pre-configured coding tests, answer sample placement question pools, and receive instant AI feedback recommendations.
-          </p>
-          <div>
-            <button onclick="playDirect('123456')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-colors cursor-pointer">
-              Start Practice Mode
-            </button>
-          </div>
-        </div>
+      <div id="live-list" class="space-y-8">
+         <!-- Dynamic live sessions load here -->
       </div>
     </div>
 
@@ -369,6 +335,23 @@ session_start();
       </div>
     </div>
 
+    <!-- SETTINGS TAB VIEW -->
+    <div id="panel-SETTINGS" class="tab-panel hidden space-y-6 py-6">
+      <div class="flex justify-between items-center mb-6 border-b border-slate-200 pb-4">
+        <div>
+          <h2 class="font-sans text-2xl font-extrabold text-slate-900">Platform Settings</h2>
+          <p class="text-slate-500 text-sm">Configure dynamic rules, appearance, and behaviors globally.</p>
+        </div>
+        <button onclick="saveSettingsForm()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg text-sm flex items-center gap-2 transition-all cursor-pointer shadow-md">
+          <i data-lucide="save" class="w-4 h-4"></i> Save Settings
+        </button>
+      </div>
+      <div id="settings-loading" class="text-center py-10"><i data-lucide="loader-2" class="w-8 h-8 mx-auto animate-spin text-indigo-500"></i></div>
+      <form id="settings-form" class="space-y-8 hidden">
+        <div id="settings-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      </form>
+    </div>
+
   </main>
 
   <!-- Footer -->
@@ -391,7 +374,14 @@ session_start();
   <!-- Core Page JS Logic -->
   <script>
     // Active Tab Navigation
+    let livePollingInterval = null;
+
     function switchTab(tabId) {
+      if (livePollingInterval) {
+         clearInterval(livePollingInterval);
+         livePollingInterval = null;
+      }
+
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
       document.getElementById('panel-' + tabId).classList.remove('hidden');
 
@@ -408,6 +398,13 @@ session_start();
 
       if (tabId === 'PRESENT') {
         loadTemplates();
+      } else if (tabId === 'HISTORY') {
+        loadHistory();
+      } else if (tabId === 'LIVE') {
+        loadLive();
+        livePollingInterval = setInterval(loadLive, 1500); // Auto refresh live
+      } else if (tabId === 'SETTINGS') {
+        loadSettings();
       }
     }
 
@@ -494,6 +491,199 @@ session_start();
       activePin = pinCode;
       showUsernameStep();
       switchTab('JOIN');
+    }
+
+    // Load History Tab
+    function loadHistory() {
+      fetch('api.php?action=get_quiz_history')
+        .then(res => res.json())
+        .then(data => {
+          const list = document.getElementById('history-list');
+          list.innerHTML = '';
+          if (data.length === 0) {
+            list.innerHTML = '<p class="text-sm text-slate-500">No past quizzes found.</p>';
+            return;
+          }
+          data.forEach(h => {
+            const winnersHtml = h.winners.map((w, i) => `
+              <div class="flex justify-between text-xs py-1.5 border-b border-slate-100 last:border-0">
+                <span class="font-semibold text-slate-700">${i+1}. ${w.name}</span>
+                <span class="font-bold text-indigo-650">${w.score} pts</span>
+              </div>
+            `).join('');
+            
+            list.innerHTML += `
+              <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-all">
+                <div class="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 class="font-sans font-bold text-slate-900 text-lg leading-tight">${h.title}</h3>
+                    <p class="text-[10px] text-slate-400 mt-1">PIN: ${h.pin_code}</p>
+                  </div>
+                  <i data-lucide="trophy" class="w-5 h-5 text-amber-500"></i>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                  <h4 class="text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-wider">Top 3 Winners</h4>
+                  ${winnersHtml || '<p class="text-xs text-slate-500 italic">No players</p>'}
+                </div>
+              </div>
+            `;
+          });
+          lucide.createIcons();
+        });
+    }
+
+    // Load Live Tab - Full Dashboard Renderer
+    function loadLive() {
+      fetch('api.php?action=get_live_sessions')
+        .then(res => res.json())
+        .then(data => {
+          const list = document.getElementById('live-list');
+          list.innerHTML = '';
+          if (data.length === 0) {
+            list.innerHTML = `
+              <div class="text-center py-16 space-y-4">
+                <div class="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                  <i data-lucide="radio" class="w-10 h-10"></i>
+                </div>
+                <p class="text-lg font-bold text-slate-500">No Active Sessions</p>
+                <p class="text-sm text-slate-400">Start a quiz from the <b>Present (Host)</b> tab to see live scores here.</p>
+              </div>`;
+            lucide.createIcons();
+            return;
+          }
+
+          data.forEach(s => {
+            // --- Status Badge ---
+            let statusBadge = '';
+            if (s.status === 'LOBBY') {
+              statusBadge = '<span class="text-[9px] bg-blue-50 text-blue-600 border border-blue-200 px-2.5 py-1 rounded-full font-black uppercase tracking-wider flex items-center gap-1.5"><i data-lucide="users" class="w-3 h-3"></i> Lobby</span>';
+            } else if (s.status === 'ACTIVE_QUESTION') {
+              statusBadge = '<span class="text-[9px] bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 rounded-full font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>Question Active</span>';
+            } else {
+              statusBadge = '<span class="text-[9px] bg-amber-50 text-amber-600 border border-amber-200 px-2.5 py-1 rounded-full font-black uppercase tracking-wider flex items-center gap-1.5"><i data-lucide="bar-chart" class="w-3 h-3"></i> Leaderboard</span>';
+            }
+
+            // --- Metrics Row ---
+            const metricsHtml = `
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600"><i data-lucide="hash" class="w-4 h-4"></i></div>
+                  <div><p class="text-[9px] uppercase font-bold text-slate-400">Question</p><p class="text-lg font-black text-slate-800">${(s.current_question_index || 0) + 1}<span class="text-xs text-slate-400 font-medium">/${s.total_questions || '?'}</span></p></div>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><i data-lucide="users" class="w-4 h-4"></i></div>
+                  <div><p class="text-[9px] uppercase font-bold text-slate-400">Players</p><p class="text-lg font-black text-slate-800">${s.total_players || 0}</p></div>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><i data-lucide="inbox" class="w-4 h-4"></i></div>
+                  <div><p class="text-[9px] uppercase font-bold text-slate-400">Answered</p><p class="text-lg font-black text-slate-800">${s.answers_this_round || 0}</p></div>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-amber-600"><i data-lucide="clock" class="w-4 h-4"></i></div>
+                  <div><p class="text-[9px] uppercase font-bold text-slate-400">Time Left</p><p class="text-lg font-black text-slate-800">${s.status === 'ACTIVE_QUESTION' ? s.time_left + 's' : '--'}</p></div>
+                </div>
+              </div>`;
+
+            // --- Current Question ---
+            let questionHtml = '';
+            if (s.current_question && s.status !== 'LOBBY') {
+              questionHtml = `
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 text-center shadow-sm">
+                  <p class="text-[10px] uppercase font-black text-slate-400 tracking-widest mb-3">Current Question</p>
+                  <h3 class="font-sans text-xl md:text-2xl font-black text-slate-900 leading-snug">${s.current_question.text}</h3>
+                </div>`;
+            }
+
+            // --- Option Bar Chart (NO correct answer shown) ---
+            let optionBarsHtml = '';
+            if (s.option_counts && s.option_counts.length > 0 && s.status !== 'LOBBY') {
+              const totalPicks = s.option_counts.reduce((sum, o) => sum + parseInt(o.pick_count || 0), 0);
+              const colors = ['bg-blue-500', 'bg-amber-500', 'bg-emerald-500', 'bg-purple-500'];
+              const bgColors = ['bg-blue-50', 'bg-amber-50', 'bg-emerald-50', 'bg-purple-50'];
+              const textColors = ['text-blue-700', 'text-amber-700', 'text-emerald-700', 'text-purple-700'];
+
+              optionBarsHtml = `
+                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                  <h4 class="text-[10px] uppercase font-black text-slate-400 mb-4 tracking-widest flex items-center gap-2"><i data-lucide="bar-chart-2" class="w-3.5 h-3.5 text-indigo-500"></i> Option Distribution</h4>
+                  <div class="space-y-3">
+                    ${s.option_counts.map((opt, idx) => {
+                      const pct = totalPicks > 0 ? Math.round((parseInt(opt.pick_count || 0) / totalPicks) * 100) : 0;
+                      return `
+                      <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-bold">
+                          <span class="${textColors[idx % 4]}"><span class="inline-flex items-center justify-center w-5 h-5 rounded-md ${bgColors[idx % 4]} font-black text-[10px] mr-1.5">${String.fromCharCode(65 + idx)}</span>${opt.text}</span>
+                          <span class="text-slate-500">${opt.pick_count} (${pct}%)</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
+                          <div class="${colors[idx % 4]} h-3 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                        </div>
+                      </div>`;
+                    }).join('')}
+                  </div>
+                </div>`;
+            }
+
+            // --- Leaderboard ---
+            let leaderHtml = '';
+            if (s.leaders && s.leaders.length > 0) {
+              leaderHtml = s.leaders.map((l, i) => {
+                let rankBg = 'bg-white border-slate-100';
+                let nameStyle = 'text-slate-800 font-semibold';
+                let rankIcon = `<span class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-black text-xs">${i+1}</span>`;
+                if (i === 0) { rankBg = 'bg-gradient-to-r from-yellow-50 to-white border-yellow-200'; nameStyle = 'text-yellow-700 font-black'; rankIcon = '<span class="text-xl">🏆</span>'; }
+                else if (i === 1) { rankBg = 'bg-gradient-to-r from-slate-50 to-white border-slate-200'; nameStyle = 'text-slate-600 font-bold'; rankIcon = '<span class="text-lg">🥈</span>'; }
+                else if (i === 2) { rankBg = 'bg-gradient-to-r from-orange-50 to-white border-slate-200'; nameStyle = 'text-orange-700 font-bold'; rankIcon = '<span class="text-lg">🥉</span>'; }
+
+                return `
+                <div class="flex justify-between items-center p-3 rounded-xl border transition-all ${rankBg}">
+                  <div class="flex items-center gap-3">
+                    ${rankIcon}
+                    <span class="text-sm ${nameStyle}">${l.name}</span>
+                    ${l.streak > 1 ? '<span class="px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 text-[9px] font-black">🔥' + l.streak + '</span>' : ''}
+                  </div>
+                  <span class="text-sm font-black text-indigo-700 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100">${l.score}</span>
+                </div>`;
+              }).join('');
+            } else {
+              leaderHtml = '<p class="text-xs text-slate-400 italic text-center py-4">Waiting for players to join...</p>';
+            }
+
+            // --- Assemble Full Card ---
+            list.innerHTML += `
+              <div class="bg-slate-50/80 border border-slate-200 rounded-[2rem] p-6 md:p-8 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400"></div>
+                
+                <!-- Session Header -->
+                <div class="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 class="font-sans font-black text-slate-900 text-xl leading-tight">${s.title}</h3>
+                    <p class="text-[10px] text-slate-400 mt-1 font-mono tracking-widest uppercase">PIN: <span class="text-indigo-600 font-bold text-xs">${s.pin_code}</span></p>
+                  </div>
+                  ${statusBadge}
+                </div>
+
+                <!-- Metrics Row -->
+                ${metricsHtml}
+
+                <!-- Question + Stats + Leaderboard Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5">
+                  <div class="lg:col-span-2 space-y-5">
+                    ${questionHtml}
+                    ${optionBarsHtml}
+                    ${!questionHtml && !optionBarsHtml ? '<div class="bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-sm"><div class="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-3 text-blue-500"><i data-lucide="users" class="w-8 h-8"></i></div><p class="text-lg font-bold text-slate-700">Lobby Open</p><p class="text-sm text-slate-400 mt-1">Players are joining. Quiz has not started yet.</p></div>' : ''}
+                  </div>
+                  <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col">
+                    <h4 class="text-[10px] uppercase font-black text-slate-400 mb-3 tracking-widest flex items-center gap-2"><i data-lucide="trophy" class="w-3.5 h-3.5 text-amber-500"></i> Live Leaderboard</h4>
+                    <div class="space-y-2 overflow-y-auto flex-grow max-h-[400px] pr-1">
+                      ${leaderHtml}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+          lucide.createIcons();
+        });
     }
 
     // Load present tab templates
@@ -751,6 +941,7 @@ session_start();
 
     // Admin Auth & Dash Logic
     let isAdmin = false;
+    let currentSettingsData = {};
 
     function checkAuth() {
       fetch('api.php?action=check_auth')
@@ -761,6 +952,113 @@ session_start();
         });
     }
 
+    // Load and Render Admin Settings
+    function loadSettings() {
+      document.getElementById('settings-loading').classList.remove('hidden');
+      document.getElementById('settings-form').classList.add('hidden');
+      fetch('api.php?action=get_settings')
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('settings-loading').classList.add('hidden');
+          if (data.success) {
+            currentSettingsData = data.settings;
+            renderSettingsUI(data.settings);
+            document.getElementById('settings-form').classList.remove('hidden');
+          } else {
+            alert('Error loading settings.');
+          }
+        });
+    }
+
+    function renderSettingsUI(settings) {
+      const container = document.getElementById('settings-container');
+      container.innerHTML = '';
+      
+      for (const [category, fields] of Object.entries(settings)) {
+        let fieldsHtml = '';
+        for (const [key, meta] of Object.entries(fields)) {
+          let inputHtml = '';
+          if (meta.type === 'boolean') {
+            const isChecked = (meta.value == "1" || meta.value == true || meta.value == "true") ? "checked" : "";
+            inputHtml = `
+              <label class="relative inline-flex items-center cursor-pointer mt-1">
+                <input type="checkbox" name="${category}___${key}" class="sr-only peer" ${isChecked}>
+                <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                <span class="ml-3 text-xs font-semibold text-slate-600">${meta.label}</span>
+              </label>
+            `;
+          } else if (meta.type === 'select') {
+            const options = meta.options.split(',').map(o => {
+              const selected = o.trim() == meta.value ? 'selected' : '';
+              return `<option value="${o.trim()}" ${selected}>${o.trim()}</option>`;
+            }).join('');
+            inputHtml = `
+              <label class="block text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-1">${meta.label}</label>
+              <select name="${category}___${key}" class="w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50 text-sm focus:border-indigo-500 outline-none transition-all">
+                ${options}
+              </select>
+            `;
+          } else {
+            inputHtml = `
+              <label class="block text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-1">${meta.label}</label>
+              <input type="${meta.type}" name="${category}___${key}" value="${meta.value}" class="w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50 text-sm focus:border-indigo-500 outline-none transition-all">
+            `;
+          }
+          
+          fieldsHtml += `<div class="${meta.type === 'boolean' ? 'flex items-center' : ''}">${inputHtml}</div>`;
+        }
+
+        container.innerHTML += `
+          <div class="bg-white border border-slate-200 rounded-[1.25rem] p-5 shadow-sm hover:shadow-md transition-shadow">
+            <h3 class="text-sm font-black text-indigo-900 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2"><i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-500"></i> ${category}</h3>
+            <div class="space-y-4">
+              ${fieldsHtml}
+            </div>
+          </div>
+        `;
+      }
+      lucide.createIcons();
+    }
+
+    function saveSettingsForm() {
+      const form = document.getElementById('settings-form');
+      const formData = new FormData(form);
+      const payload = {};
+      
+      // Initialize with existing data to capture unchecked booleans
+      for (const [category, fields] of Object.entries(currentSettingsData)) {
+        payload[category] = {};
+        for (const [key, meta] of Object.entries(fields)) {
+          if (meta.type === 'boolean') {
+            payload[category][key] = "0"; // Default unchecked
+          }
+        }
+      }
+
+      for (let [name, value] of formData.entries()) {
+        const parts = name.split('___');
+        if (parts.length === 2) {
+          const cat = parts[0];
+          const key = parts[1];
+          // If it's in formData, it's checked/present
+          if (currentSettingsData[cat][key].type === 'boolean') {
+            payload[cat][key] = "1";
+          } else {
+            payload[cat][key] = value;
+          }
+        }
+      }
+
+      fetch('api.php?action=save_settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      }).then(res => res.json()).then(data => {
+        if(data.success) alert("Settings saved globally!");
+        else alert("Failed to save settings");
+      });
+    }
+
     function updateAdminUI() {
       if (isAdmin) {
         // Hide student tabs, show admin tabs
@@ -769,8 +1067,7 @@ session_start();
         document.getElementById('admin-login-view').classList.add('hidden');
         document.getElementById('admin-register-view').classList.add('hidden');
         document.getElementById('admin-dashboard-view').classList.remove('hidden');
-        switchTab('ADMIN');
-        loadAdminSessions();
+        switchTab('LIVE');
       } else {
         // Show student tabs, hide admin tabs
         document.querySelectorAll('.student-only').forEach(el => el.classList.remove('hidden'));

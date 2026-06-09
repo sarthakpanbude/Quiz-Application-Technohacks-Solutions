@@ -97,6 +97,12 @@ try {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS global_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT,
+        category TEXT
+    )");
+
     // Seed default React & JS Placement Prep quiz if quizzes list is empty
     $stmt = $pdo->query("SELECT COUNT(*) FROM quizzes");
     $count = $stmt->fetchColumn();

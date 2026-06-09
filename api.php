@@ -598,6 +598,127 @@ try {
             $response = $stmtP->fetchAll();
             break;
 
+        case 'get_quiz_history':
+            $stmtS = $pdo->query("SELECT qs.id, qs.pin_code, q.title, qs.created_at FROM quiz_sessions qs JOIN quizzes q ON q.id = qs.quiz_id WHERE qs.status = 'FINISHED' ORDER BY qs.id DESC LIMIT 15");
+            $history = [];
+            while ($row = $stmtS->fetch()) {
+                $stmtP = $pdo->prepare("SELECT username as name, score FROM session_participants WHERE session_id = ? ORDER BY score DESC LIMIT 3");
+                $stmtP->execute([$row['id']]);
+                $winners = $stmtP->fetchAll();
+                $row['winners'] = $winners;
+                $history[] = $row;
+            }
+            $response = $history;
+            break;
+
+        case 'get_live_sessions':
+            $stmtS = $pdo->query("SELECT qs.id, qs.pin_code, qs.status, qs.quiz_id, qs.current_question_index, qs.active_question_start, q.title, q.time_limit, qs.created_at FROM quiz_sessions qs JOIN quizzes q ON q.id = qs.quiz_id WHERE qs.status IN ('LOBBY', 'ACTIVE_QUESTION', 'SHOWING_LEADERBOARD') ORDER BY qs.id DESC");
+            $live = [];
+            while ($row = $stmtS->fetch()) {
+                $sessionId = $row['id'];
+
+                // Total players
+                $stmtCnt = $pdo->prepare("SELECT COUNT(*) FROM session_participants WHERE session_id = ?");
+                $stmtCnt->execute([$sessionId]);
+                $row['total_players'] = intval($stmtCnt->fetchColumn());
+
+                // Top 10 leaderboard with streaks
+                $stmtP = $pdo->prepare("SELECT username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY score DESC LIMIT 10");
+                $stmtP->execute([$sessionId]);
+                $row['leaders'] = $stmtP->fetchAll();
+
+                // Current question info (NO correct answer exposed)
+                $stmtQs = $pdo->prepare("SELECT id FROM questions WHERE quiz_id = ? ORDER BY q_order ASC");
+                $stmtQs->execute([$row['quiz_id']]);
+                $qIds = $stmtQs->fetchAll(PDO::FETCH_COLUMN);
+                $totalQ = count($qIds);
+                $row['total_questions'] = $totalQ;
+                $activeQId = $qIds[$row['current_question_index']] ?? 0;
+
+                if ($activeQId && $row['status'] !== 'LOBBY') {
+                    $stmtQ = $pdo->prepare("SELECT id, text, type FROM questions WHERE id = ?");
+                    $stmtQ->execute([$activeQId]);
+                    $qData = $stmtQ->fetch();
+                    $row['current_question'] = $qData ? ['text' => $qData['text'], 'type' => $qData['type']] : null;
+
+                    // Option pick counts (text + count only, NO is_correct)
+                    $stmtOpts = $pdo->prepare("SELECT o.text, COUNT(r.id) as pick_count FROM options o LEFT JOIN session_responses r ON r.option_id = o.id AND r.session_id = ? WHERE o.question_id = ? GROUP BY o.id ORDER BY o.o_order ASC");
+                    $stmtOpts->execute([$sessionId, $activeQId]);
+                    $row['option_counts'] = $stmtOpts->fetchAll();
+
+                    // Answers submitted for this question
+                    $stmtAns = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND question_id = ?");
+                    $stmtAns->execute([$sessionId, $activeQId]);
+                    $row['answers_this_round'] = intval($stmtAns->fetchColumn());
+
+                    // Time left
+                    $timeLimit = intval($row['time_limit'] ?? 30);
+                    $elapsed = time() - intval($row['active_question_start']);
+                    $row['time_left'] = max(0, $timeLimit - $elapsed);
+                } else {
+                    $row['current_question'] = null;
+                    $row['option_counts'] = [];
+                    $row['answers_this_round'] = 0;
+                    $row['time_left'] = 0;
+                }
+
+                $live[] = $row;
+            }
+            $response = $live;
+            break;
+
+        case 'get_settings':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            require_once __DIR__ . '/settings_schema.php';
+            
+            $stmt = $pdo->query("SELECT setting_key, setting_value, category FROM global_settings");
+            $dbSettings = [];
+            while ($row = $stmt->fetch()) {
+                $dbSettings[$row['setting_key']] = $row['setting_value'];
+            }
+            
+            $finalSettings = [];
+            foreach ($DEFAULT_SETTINGS as $category => $keys) {
+                $finalSettings[$category] = [];
+                foreach ($keys as $key => $meta) {
+                    $val = $dbSettings[$key] ?? $meta['value'];
+                    $finalSettings[$category][$key] = [
+                        'label' => $meta['label'],
+                        'type' => $meta['type'],
+                        'value' => $val,
+                        'options' => $meta['options'] ?? null
+                    ];
+                }
+            }
+            $response = ['success' => true, 'settings' => $finalSettings];
+            break;
+
+        case 'save_settings':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!$data) {
+                $response = ['error' => 'Invalid data payload'];
+                break;
+            }
+            
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare("INSERT INTO global_settings (setting_key, setting_value, category) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value");
+            foreach ($data as $category => $keys) {
+                foreach ($keys as $key => $val) {
+                    $stmt->execute([$key, $val, $category]);
+                }
+            }
+            $pdo->commit();
+            $response = ['success' => true];
+            break;
+
+
         case 'get_question_answers':
             // Fetch explanation & correct choices on question end
             $pin = $_GET['pin_code'] ?? '';
