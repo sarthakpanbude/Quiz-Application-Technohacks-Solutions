@@ -58,39 +58,106 @@ class SoundSynth {
     this.lobbyInterval = setInterval(playNote, 400);
   }
 
+  startKBCDrone() {
+    if (this.isMuted || this.kbcDroneOsc) return;
+    this.initCtx();
+    const ctx = this.ctx;
+
+    this.kbcDroneOsc = ctx.createOscillator();
+    this.kbcDroneGain = ctx.createGain();
+    
+    this.kbcDroneOsc.type = 'sawtooth';
+    this.kbcDroneOsc.frequency.setValueAtTime(55, ctx.currentTime); // Low tense note
+
+    // Filter to make it dark and moody
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(150, ctx.currentTime);
+
+    this.kbcDroneGain.gain.setValueAtTime(0, ctx.currentTime);
+    this.kbcDroneGain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 2); // Fade in
+
+    this.kbcDroneOsc.connect(filter);
+    filter.connect(this.kbcDroneGain);
+    this.kbcDroneGain.connect(ctx.destination);
+
+    this.kbcDroneOsc.start();
+  }
+
+  stopKBCDrone() {
+    if (this.kbcDroneGain && this.ctx) {
+      this.kbcDroneGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5);
+      setTimeout(() => {
+        if (this.kbcDroneOsc) {
+          try { this.kbcDroneOsc.stop(); } catch(e){}
+          this.kbcDroneOsc = null;
+        }
+      }, 500);
+    }
+  }
+
   playCountdown(timeLeft) {
     if (this.isMuted) return;
     this.initCtx();
     const ctx = this.ctx;
 
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    this.startKBCDrone();
+
+    // Heartbeat low drum (KBC style)
+    const oscLow = ctx.createOscillator();
+    const gainLow = ctx.createGain();
+    oscLow.type = 'sine';
+    oscLow.frequency.setValueAtTime(60, ctx.currentTime);
+    oscLow.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.5);
+    gainLow.gain.setValueAtTime(0.9, ctx.currentTime);
+    gainLow.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    oscLow.connect(gainLow);
+    gainLow.connect(ctx.destination);
+    oscLow.start();
+    oscLow.stop(ctx.currentTime + 0.6);
+
+    // High tension tick
+    const oscHigh = ctx.createOscillator();
+    const gainHigh = ctx.createGain();
 
     if (timeLeft <= 5 && timeLeft > 0) {
-      // High pitch sawtooth double warning beats
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      // Faster, more intense tick for last 5 seconds
+      oscHigh.type = 'square';
+      oscHigh.frequency.setValueAtTime(1000, ctx.currentTime);
+      gainHigh.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainHigh.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+      
+      const oscHigh2 = ctx.createOscillator();
+      const gainHigh2 = ctx.createGain();
+      oscHigh2.type = 'square';
+      oscHigh2.frequency.setValueAtTime(1200, ctx.currentTime + 0.2);
+      gainHigh2.gain.setValueAtTime(0.3, ctx.currentTime + 0.2);
+      gainHigh2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      oscHigh2.connect(gainHigh2);
+      gainHigh2.connect(ctx.destination);
+      oscHigh2.start(ctx.currentTime + 0.2);
+      oscHigh2.stop(ctx.currentTime + 0.4);
+
     } else if (timeLeft === 0) {
-      // Alarm buzzer
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(140, ctx.currentTime);
-      osc.frequency.linearRampToValueAtTime(80, ctx.currentTime + 0.5);
-      gain.gain.setValueAtTime(0.6, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      this.stopKBCDrone();
+      // KBC Time's up buzzer
+      oscHigh.type = 'sawtooth';
+      oscHigh.frequency.setValueAtTime(150, ctx.currentTime);
+      oscHigh.frequency.linearRampToValueAtTime(50, ctx.currentTime + 1.0);
+      gainHigh.gain.setValueAtTime(0.7, ctx.currentTime);
+      gainHigh.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.0);
     } else {
-      // normal soft ticking clock beat
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(500, ctx.currentTime);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      // Normal KBC tick
+      oscHigh.type = 'triangle';
+      oscHigh.frequency.setValueAtTime(900, ctx.currentTime);
+      gainHigh.gain.setValueAtTime(0.2, ctx.currentTime);
+      gainHigh.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
     }
 
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.6);
+    oscHigh.connect(gainHigh);
+    gainHigh.connect(ctx.destination);
+    oscHigh.start();
+    oscHigh.stop(ctx.currentTime + (timeLeft === 0 ? 1.5 : 0.6));
   }
 
   playVictory() {
