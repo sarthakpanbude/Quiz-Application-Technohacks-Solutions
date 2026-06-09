@@ -193,6 +193,20 @@ try {
 
           document.getElementById('header-quiz-title').innerText = data.quiz_title;
 
+          // Music mute sync from settings
+          if (data.music_enabled === 0) {
+            if (!sound.getMute()) {
+              sound.setMute(true);
+            }
+          } else {
+            if (sound.getMute()) {
+              sound.setMute(false);
+              if (data.status === 'LOBBY') {
+                sound.playLobby();
+              }
+            }
+          }
+
           if (data.status !== currentState) {
             handleStateTransition(data.status, data);
           }
@@ -348,7 +362,7 @@ try {
             const score = data.student_score;
             if (score.isCorrect) {
               banner.className = "p-4 rounded-xl text-center border font-bold text-sm bg-emerald-50 text-emerald-600 border-emerald-200";
-              banner.innerText = `Correct Answer! You earned +${score.scoreEarned} points! Streak 🔥 ${score.streak}`;
+              banner.innerText = `Correct Answer! You earned +${score.scoreEarned} marks! Streak 🔥 ${score.streak}`;
             } else {
               banner.className = "p-4 rounded-xl text-center border font-bold text-sm bg-red-50 text-red-650 border-red-200";
               banner.innerText = `Incorrect. Streak reset. Keep focusing!`;
@@ -370,7 +384,7 @@ try {
               </div>
               <div class="flex items-center gap-3">
                 ${row.streak > 1 ? `<span class="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1 py-0.5 rounded font-bold">🔥 ${row.streak}</span>` : ''}
-                <span class="text-xs font-mono font-bold text-indigo-650">${row.score} pts</span>
+                <span class="text-xs font-mono font-bold text-indigo-650">${row.score} marks</span>
               </div>
             </div>
           `).join('');
@@ -387,7 +401,7 @@ try {
           finalBox.innerHTML = rankings.map((row, idx) => `
             <div class="flex justify-between text-xs text-slate-700 py-1 border-b border-slate-100 last:border-0 font-medium">
               <span class="font-semibold">${idx + 1}. ${row.name}</span>
-              <span class="font-mono text-indigo-650 font-bold">${row.score} pts</span>
+              <span class="font-mono text-indigo-650 font-bold">${row.score} marks</span>
             </div>
           `).join('');
         });

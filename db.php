@@ -47,9 +47,19 @@ try {
         status TEXT DEFAULT 'LOBBY', -- LOBBY, ACTIVE_QUESTION, SHOWING_LEADERBOARD, FINISHED
         current_question_index INTEGER DEFAULT 0,
         active_question_start INTEGER DEFAULT 0, -- epoch timestamp
+        question_time_limit INTEGER DEFAULT NULL,
+        music_enabled INTEGER DEFAULT 1,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
     )");
+
+    // Run migration checks for existing tables
+    try {
+        $pdo->exec("ALTER TABLE quiz_sessions ADD COLUMN question_time_limit INTEGER DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quiz_sessions ADD COLUMN music_enabled INTEGER DEFAULT 1");
+    } catch (PDOException $e) {}
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS session_participants (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

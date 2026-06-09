@@ -81,6 +81,34 @@
           <p class="text-xs text-slate-400 italic">Waiting for candidates to join room...</p>
         </div>
 
+        <!-- Quiz Settings Section -->
+        <div class="border-t border-slate-100 pt-6 text-left space-y-4">
+          <h3 class="text-xs uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1.5 font-sans">
+            <i data-lucide="settings" class="w-4 h-4"></i> Quiz Arena Settings
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1">
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Time Per Question</label>
+              <select id="setting-duration" onchange="updateLobbySettings()" class="w-full bg-slate-50 border border-slate-200 focus:outline-none rounded-lg p-2 text-slate-850 text-xs cursor-pointer font-semibold">
+                <option value="default">Default Quiz Duration</option>
+                <option value="5">5 Seconds</option>
+                <option value="10">10 Seconds</option>
+                <option value="20">20 Seconds</option>
+                <option value="30">30 Seconds</option>
+                <option value="45">45 Seconds</option>
+                <option value="60">60 Seconds</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Background Music</label>
+              <select id="setting-music" onchange="updateLobbySettings()" class="w-full bg-slate-50 border border-slate-200 focus:outline-none rounded-lg p-2 text-slate-850 text-xs cursor-pointer font-semibold">
+                <option value="1">Music On 🔊</option>
+                <option value="0">Music Off 🔇</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <button onclick="startQuiz()" id="start-btn" disabled class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50">
           <i data-lucide="play" class="w-4 h-4 fill-white"></i> Launch Live Quiz
         </button>
@@ -152,10 +180,10 @@
             <!-- Rank listings -->
           </div>
 
-          <button onclick="nextQuestion()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm">
-            <span>Next Question</span>
-            <i data-lucide="arrow-right" class="w-4 h-4"></i>
-          </button>
+          <div class="text-center p-3.5 bg-indigo-50 text-indigo-750 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
+            <i data-lucide="sparkles" class="w-4 h-4 text-cyan-600 animate-pulse"></i>
+            <span id="auto-next-text">Next question starts in 8s...</span>
+          </div>
         </div>
       </div>
     </div>
@@ -203,6 +231,9 @@
 
     let currentState = '';
     let intervalId = null;
+    let manualMuted = false;
+    let autoNextTimeout = null;
+    let autoNextInterval = null;
 
     // Load initial sounds and poll
     window.addEventListener('load', () => {
@@ -212,15 +243,46 @@
     });
 
     function toggleMute() {
-      const isMuted = !sound.getMute();
-      sound.setMute(isMuted);
+      manualMuted = !sound.getMute();
+      sound.setMute(manualMuted);
       const btn = document.getElementById('mute-btn');
-      if (isMuted) {
+      if (manualMuted) {
         btn.innerHTML = `<i data-lucide="volume-x" class="w-4 h-4 text-red-500"></i>`;
       } else {
         btn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i>`;
       }
       lucide.createIcons();
+    }
+
+    function updateLobbySettings() {
+      const duration = document.getElementById('setting-duration').value;
+      const music = document.getElementById('setting-music').value;
+
+      // Realtime local feedback
+      if (music === "0") {
+        sound.setMute(true);
+        const btn = document.getElementById('mute-btn');
+        if (btn) {
+          btn.innerHTML = `<i data-lucide="volume-x" class="w-4 h-4 text-red-500"></i>`;
+          lucide.createIcons();
+        }
+      } else {
+        if (!manualMuted) {
+          sound.setMute(false);
+          const btn = document.getElementById('mute-btn');
+          if (btn) {
+            btn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i>`;
+            lucide.createIcons();
+          }
+        }
+      }
+
+      const fd = new FormData();
+      fd.append('pin_code', pin);
+      fd.append('question_time_limit', duration);
+      fd.append('music_enabled', music);
+
+      fetch('api.php?action=update_session_settings', { method: 'POST', body: fd });
     }
 
     function pollLobby() {
@@ -234,6 +296,30 @@
           }
 
           document.getElementById('header-quiz-title').innerText = data.quiz_title;
+
+          // Music mute sync from settings
+          if (data.music_enabled === 0) {
+            if (!sound.getMute()) {
+              sound.setMute(true);
+              const btn = document.getElementById('mute-btn');
+              if (btn) {
+                btn.innerHTML = `<i data-lucide="volume-x" class="w-4 h-4 text-red-500"></i>`;
+                lucide.createIcons();
+              }
+            }
+          } else {
+            if (sound.getMute() && !manualMuted) {
+              sound.setMute(false);
+              if (data.status === 'LOBBY') {
+                sound.playLobby();
+              }
+              const btn = document.getElementById('mute-btn');
+              if (btn) {
+                btn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i>`;
+                lucide.createIcons();
+              }
+            }
+          }
           
           if (data.status !== currentState) {
             handleStateTransition(data.status, data);
@@ -251,6 +337,16 @@
     function handleStateTransition(newState, data) {
       currentState = newState;
       
+      // Clear existing auto next timers
+      if (autoNextTimeout) {
+        clearTimeout(autoNextTimeout);
+        autoNextTimeout = null;
+      }
+      if (autoNextInterval) {
+        clearInterval(autoNextInterval);
+        autoNextInterval = null;
+      }
+
       // Hide all panels
       document.querySelectorAll('main > div').forEach(p => p.classList.add('hidden'));
       document.getElementById('panel-' + newState).classList.remove('hidden');
@@ -279,6 +375,30 @@
         refreshActiveQuestion(data);
       } else if (newState === 'SHOWING_LEADERBOARD') {
         loadLeaderboardChoices();
+        
+        let secondsLeft = 8;
+        const textSpan = document.getElementById('auto-next-text');
+        if (textSpan) {
+          textSpan.innerText = `Next question starts in ${secondsLeft}s...`;
+        }
+
+        autoNextInterval = setInterval(() => {
+          secondsLeft--;
+          const span = document.getElementById('auto-next-text');
+          if (span) {
+            span.innerText = `Next question starts in ${secondsLeft}s...`;
+          }
+          if (secondsLeft <= 0) {
+            clearInterval(autoNextInterval);
+            autoNextInterval = null;
+          }
+        }, 1000);
+
+        autoNextTimeout = setTimeout(() => {
+          if (currentState === 'SHOWING_LEADERBOARD') {
+            nextQuestion();
+          }
+        }, 8000);
       }
 
       lucide.createIcons();
@@ -328,7 +448,7 @@
             <div class="flex justify-between items-center p-2 rounded-lg bg-slate-50 border border-slate-200">
               <span class="text-xs font-semibold text-slate-700">${t.name}</span>
               <div class="flex items-center gap-2">
-                <span class="text-xs font-mono font-bold text-slate-500">${t.score} pts</span>
+                <span class="text-xs font-mono font-bold text-slate-500">${t.score} marks</span>
                 <span class="text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
                   t.hasAnswered ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-600 animate-pulse'
                 }">
@@ -364,7 +484,7 @@
               </div>
               <div class="flex items-center gap-3">
                 ${row.streak > 1 ? `<span class="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1 py-0.5 rounded font-bold">🔥 ${row.streak}</span>` : ''}
-                <span class="text-xs font-mono font-bold text-indigo-650">${row.score} pts</span>
+                <span class="text-xs font-mono font-bold text-indigo-650">${row.score} marks</span>
               </div>
             </div>
           `).join('');

@@ -179,11 +179,11 @@ try {
             $session = $stmtS->fetch();
 
             if ($session) {
-                $stmtUp = $pdo->prepare("UPDATE quiz_sessions SET status = 'LOBBY', current_question_index = 0, active_question_start = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+                $stmtUp = $pdo->prepare("UPDATE quiz_sessions SET status = 'LOBBY', current_question_index = 0, active_question_start = 0, question_time_limit = NULL, music_enabled = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
                 $stmtUp->execute([$session['id']]);
                 $sessionId = $session['id'];
             } else {
-                $stmtIns = $pdo->prepare("INSERT INTO quiz_sessions (quiz_id, pin_code, status, current_question_index) VALUES (?, ?, 'LOBBY', 0)");
+                $stmtIns = $pdo->prepare("INSERT INTO quiz_sessions (quiz_id, pin_code, status, current_question_index, question_time_limit, music_enabled) VALUES (?, ?, 'LOBBY', 0, NULL, 1)");
                 $stmtIns->execute([$quiz['id'], $quiz['pin_code']]);
                 $sessionId = $pdo->lastInsertId();
             }
@@ -234,18 +234,21 @@ try {
                     $stmtO->execute([$q['id']]);
                     $opts = $stmtO->fetchAll();
 
+                    // Apply question time limit override if specified
+                    $timeLimit = $session['question_time_limit'] ? intval($session['question_time_limit']) : intval($q['time_limit']);
+
                     $currentQuestion = [
                         'id' => $q['id'],
                         'type' => $q['type'],
                         'text' => $q['text'],
                         'points' => $q['points'],
-                        'time_limit' => $q['time_limit'],
+                        'time_limit' => $timeLimit,
                         'coding_template' => $q['coding_template'],
                         'options' => $opts
                     ];
 
                     $elapsed = time() - intval($session['active_question_start']);
-                    $timeLeft = max(0, $q['time_limit'] - $elapsed);
+                    $timeLeft = max(0, $timeLimit - $elapsed);
 
                     // Automatic closed check
                     if ($timeLeft === 0) {
@@ -262,8 +265,21 @@ try {
                 'current_question_index' => intval($session['current_question_index']),
                 'players' => $players,
                 'current_question' => $currentQuestion,
-                'time_left' => $timeLeft
+                'time_left' => $timeLeft,
+                'music_enabled' => intval($session['music_enabled'])
             ];
+            break;
+
+        case 'update_session_settings':
+            $pin = $_POST['pin_code'] ?? '';
+            $duration = $_POST['question_time_limit'] ?? 'default';
+            $music = intval($_POST['music_enabled'] ?? 1);
+
+            $timeLimit = ($duration === 'default') ? null : intval($duration);
+
+            $stmt = $pdo->prepare("UPDATE quiz_sessions SET question_time_limit = ?, music_enabled = ? WHERE pin_code = ?");
+            $stmt->execute([$timeLimit, $music, $pin]);
+            $response = ['success' => true];
             break;
 
         case 'start_session':
@@ -354,17 +370,11 @@ try {
 
             if ($isCorrect) {
                 $streak = intval($participant['streak']) + 1;
-                
-                // Speed points calculation
+                $scoreEarned = 1;
                 $responseTimeMs = (time() - intval($session['active_question_start'])) * 1000;
-                $timeLimitMs = intval($question['time_limit']) * 1000;
-                $timeRatio = min(1, $responseTimeMs / $timeLimitMs);
-                $speedMultiplier = 1.0 - ($timeRatio * 0.5); // ranges 1.0 down to 0.5
-                
-                $streakMultiplier = 1.0 + min(0.5, ($streak - 1) * 0.1);
-                $scoreEarned = round(intval($question['points']) * $speedMultiplier * $streakMultiplier);
             } else {
                 $streak = 0;
+                $scoreEarned = 0;
                 $responseTimeMs = (time() - intval($session['active_question_start'])) * 1000;
             }
 
