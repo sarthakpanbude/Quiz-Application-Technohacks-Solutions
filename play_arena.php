@@ -7,6 +7,20 @@ if (empty($username) || empty($pin)) {
     header("Location: index.php");
     exit;
 }
+
+// Auto-register candidate in session roster in database immediately
+require_once __DIR__ . '/db.php';
+try {
+    $stmtS = $pdo->prepare("SELECT id FROM quiz_sessions WHERE pin_code = ?");
+    $stmtS->execute([$pin]);
+    $sessionId = $stmtS->fetchColumn();
+    if ($sessionId) {
+        $stmtIns = $pdo->prepare("INSERT OR IGNORE INTO session_participants (session_id, username) VALUES (?, ?)");
+        $stmtIns->execute([$sessionId, $username]);
+    }
+} catch (Exception $e) {
+    // Ignore db exceptions silently
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
