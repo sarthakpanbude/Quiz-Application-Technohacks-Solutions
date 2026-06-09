@@ -66,6 +66,7 @@ try {
 
         case 'register_guest':
             $name = trim($_POST['name'] ?? '');
+            $pin = trim($_POST['pin_code'] ?? '');
             if (empty($name)) {
                 $response = ['error' => 'Display name is required'];
                 break;
@@ -73,6 +74,17 @@ try {
             $_SESSION['user_id'] = 'guest_' . uniqid();
             $_SESSION['username'] = $name;
             $_SESSION['role'] = 'STUDENT';
+
+            if (!empty($pin)) {
+                $stmtS = $pdo->prepare("SELECT id FROM quiz_sessions WHERE pin_code = ?");
+                $stmtS->execute([$pin]);
+                $sessionId = $stmtS->fetchColumn();
+                if ($sessionId) {
+                    $stmtIns = $pdo->prepare("INSERT OR IGNORE INTO session_participants (session_id, username) VALUES (?, ?)");
+                    $stmtIns->execute([$sessionId, $name]);
+                }
+            }
+
             $response = [
                 'success' => true,
                 'username' => $name,

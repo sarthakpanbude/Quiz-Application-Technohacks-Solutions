@@ -449,6 +449,7 @@ session_start();
 
       const fd = new FormData();
       fd.append('name', username);
+      fd.append('pin_code', activePin);
 
       fetch('api.php?action=register_guest', { method: 'POST', body: fd })
         .then(res => res.json())

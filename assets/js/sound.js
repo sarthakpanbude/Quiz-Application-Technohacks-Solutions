@@ -42,7 +42,7 @@ class SoundSynth {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(notes[step % notes.length], ctx.currentTime);
       
-      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
       
       osc.connect(gain);
@@ -70,20 +70,20 @@ class SoundSynth {
       // High pitch sawtooth double warning beats
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(880, ctx.currentTime);
-      gain.gain.setValueAtTime(0.05, ctx.currentTime);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
     } else if (timeLeft === 0) {
       // Alarm buzzer
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(140, ctx.currentTime);
       osc.frequency.linearRampToValueAtTime(80, ctx.currentTime + 0.5);
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.setValueAtTime(0.6, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
     } else {
       // normal soft ticking clock beat
       osc.type = 'sine';
       osc.frequency.setValueAtTime(500, ctx.currentTime);
-      gain.gain.setValueAtTime(0.03, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
     }
 
@@ -108,7 +108,7 @@ class SoundSynth {
       osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.08);
       
       gain.gain.setValueAtTime(0.0, ctx.currentTime + idx * 0.08);
-      gain.gain.linearRampToValueAtTime(0.06, ctx.currentTime + idx * 0.08 + 0.04);
+      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + idx * 0.08 + 0.04);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.08 + 1.0);
       
       osc.connect(gain);
