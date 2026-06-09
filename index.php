@@ -324,6 +324,32 @@ session_start();
             Login
           </button>
         </form>
+        <div class="text-center pt-2">
+          <button onclick="toggleAdminForm('register')" class="text-xs text-indigo-600 hover:underline font-semibold cursor-pointer">
+            Don't have an admin account? Register ➔
+          </button>
+        </div>
+      </div>
+
+      <!-- Register View (Hidden by default) -->
+      <div id="admin-register-view" class="hidden w-full max-w-md mx-auto bg-white border border-slate-200 rounded-2xl shadow-xl p-8 space-y-6">
+        <div class="text-center">
+          <h2 class="font-sans text-2xl font-extrabold text-slate-900">Admin Registration</h2>
+          <p class="text-slate-500 text-xs mt-1">Create a new admin account (requires code).</p>
+        </div>
+        <form onsubmit="handleAdminRegister(event)" class="space-y-4">
+          <input type="text" id="admin-reg-user" required placeholder="Desired Username" class="w-full text-center font-bold text-lg bg-slate-50 border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl p-3.5 text-slate-800" />
+          <input type="password" id="admin-reg-pass" required placeholder="Password" class="w-full text-center font-bold text-lg bg-slate-50 border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl p-3.5 text-slate-800" />
+          <input type="password" id="admin-reg-code" required placeholder="Common Security Code" class="w-full text-center font-bold text-lg bg-slate-50 border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl p-3.5 text-slate-800 font-mono" />
+          <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-sm transition-colors cursor-pointer">
+            Register Admin
+          </button>
+        </form>
+        <div class="text-center pt-2">
+          <button onclick="toggleAdminForm('login')" class="text-xs text-indigo-600 hover:underline font-semibold cursor-pointer">
+            Already have an admin account? Log in ➔
+          </button>
+        </div>
       </div>
 
       <!-- Dashboard View -->
@@ -741,6 +767,7 @@ session_start();
         document.querySelectorAll('.student-only').forEach(el => el.classList.add('hidden'));
         document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
         document.getElementById('admin-login-view').classList.add('hidden');
+        document.getElementById('admin-register-view').classList.add('hidden');
         document.getElementById('admin-dashboard-view').classList.remove('hidden');
         switchTab('ADMIN');
         loadAdminSessions();
@@ -749,9 +776,45 @@ session_start();
         document.querySelectorAll('.student-only').forEach(el => el.classList.remove('hidden'));
         document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
         document.getElementById('admin-login-view').classList.remove('hidden');
+        document.getElementById('admin-register-view').classList.add('hidden');
         document.getElementById('admin-dashboard-view').classList.add('hidden');
         switchTab('JOIN');
       }
+    }
+
+    function toggleAdminForm(formType) {
+      if (formType === 'register') {
+        document.getElementById('admin-login-view').classList.add('hidden');
+        document.getElementById('admin-register-view').classList.remove('hidden');
+      } else {
+        document.getElementById('admin-register-view').classList.add('hidden');
+        document.getElementById('admin-login-view').classList.remove('hidden');
+      }
+    }
+
+    function handleAdminRegister(e) {
+      e.preventDefault();
+      const u = document.getElementById('admin-reg-user').value.trim();
+      const p = document.getElementById('admin-reg-pass').value;
+      const c = document.getElementById('admin-reg-code').value.trim();
+
+      fetch('api.php?action=admin_register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username: u, password: p, security_code: c})
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert('Admin registration successful! You can now log in.');
+          document.getElementById('admin-reg-user').value = '';
+          document.getElementById('admin-reg-pass').value = '';
+          document.getElementById('admin-reg-code').value = '';
+          toggleAdminForm('login');
+        } else {
+          alert(data.error || 'Failed to register admin.');
+        }
+      });
     }
 
     function handleAdminLogin(e) {
@@ -769,7 +832,7 @@ session_start();
           document.getElementById('admin-user').value = '';
           document.getElementById('admin-pass').value = '';
         } else {
-          alert('Invalid admin credentials. (Hint: admin/admin)');
+          alert(data.error || 'Invalid admin credentials.');
         }
       });
     }

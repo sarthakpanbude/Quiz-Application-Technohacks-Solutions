@@ -90,6 +90,13 @@ try {
         UNIQUE(session_id, question_id, participant_id)
     )");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS admins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
     // Seed default React & JS Placement Prep quiz if quizzes list is empty
     $stmt = $pdo->query("SELECT COUNT(*) FROM quizzes");
     $count = $stmt->fetchColumn();

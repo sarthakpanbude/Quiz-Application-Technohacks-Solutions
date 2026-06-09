@@ -26,17 +26,67 @@ try {
             }
             break;
 
+        case 'admin_register':
+            $input = json_decode(file_get_contents('php://input'), true);
+            $username = trim($input['username'] ?? '');
+            $password = $input['password'] ?? '';
+            $securityCode = trim($input['security_code'] ?? '');
+
+            if (empty($username) || empty($password)) {
+                $response = ['error' => 'Username and password are required'];
+                break;
+            }
+
+            if ($securityCode !== '2026') {
+                $response = ['error' => 'Invalid security code. Registration is restricted to authorized admins.'];
+                break;
+            }
+
+            // Check if username already exists
+            $stmt = $pdo->prepare("SELECT id FROM admins WHERE username = ?");
+            $stmt->execute([$username]);
+            if ($stmt->fetch()) {
+                $response = ['error' => 'Username is already taken'];
+                break;
+            }
+
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            $stmtIns = $pdo->prepare("INSERT INTO admins (username, password_hash) VALUES (?, ?)");
+            $stmtIns->execute([$username, $passwordHash]);
+            $response = ['success' => true];
+            break;
+
         case 'admin_login':
             $user = json_decode(file_get_contents('php://input'), true);
-            $username = $user['username'] ?? '';
+            $username = trim($user['username'] ?? '');
             $password = $user['password'] ?? '';
-            if ($username === 'admin' && $password === 'admin') {
-                $_SESSION['user_id'] = 'admin_id';
-                $_SESSION['username'] = 'Admin';
+
+            if (empty($username) || empty($password)) {
+                $response = ['error' => 'Username and password are required'];
+                break;
+            }
+
+            $stmt = $pdo->prepare("SELECT * FROM admins WHERE username = ?");
+            $stmt->execute([$username]);
+            $dbUser = $stmt->fetch();
+
+            if ($dbUser && password_verify($password, $dbUser['password_hash'])) {
+                $_SESSION['user_id'] = 'admin_' . $dbUser['id'];
+                $_SESSION['username'] = $dbUser['username'];
                 $_SESSION['role'] = 'ADMIN';
                 $response = ['success' => true];
             } else {
-                $response = ['error' => 'Invalid credentials'];
+                // Fallback for bootstrap
+                $stmtCount = $pdo->query("SELECT COUNT(*) FROM admins");
+                $adminCount = $stmtCount->fetchColumn();
+                if ($adminCount == 0 && $username === 'admin' && $password === 'admin') {
+                    $_SESSION['user_id'] = 'admin_default';
+                    $_SESSION['username'] = 'Admin';
+                    $_SESSION['role'] = 'ADMIN';
+                    $response = ['success' => true];
+                } else {
+                    $response = ['error' => 'Invalid admin credentials'];
+                }
             }
             break;
 
