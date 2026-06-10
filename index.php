@@ -48,7 +48,7 @@ session_start();
           <i data-lucide="presentation" class="w-4 h-4"></i> Present Host
         </button>
         <button onclick="switchTab('MAKE')" id="tab-MAKE" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
-          <i data-lucide="file-pen-line" class="w-4 h-4"></i> Make (Create)
+          <i data-lucide="file-pen-line" class="w-4 h-4"></i> Quiz Builder
         </button>
         <button onclick="switchTab('SETTINGS')" id="tab-SETTINGS" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="settings" class="w-4 h-4"></i> Settings
@@ -916,7 +916,7 @@ session_start();
           const list = document.getElementById('quiz-list');
           list.innerHTML = '';
           if (quizzes.length === 0) {
-            list.innerHTML = `<p class="text-slate-400 italic text-sm">No quizzes found. Navigate to "Make" to build one!</p>`;
+            list.innerHTML = `<p class="text-slate-400 italic text-sm">No quizzes found. Navigate to "Quiz Builder" to build one!</p>`;
             return;
           }
 

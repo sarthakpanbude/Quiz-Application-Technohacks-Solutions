@@ -442,6 +442,10 @@ class SoundSynth {
     }
     this.currentQuestionIndex = null;
   }
+
+  stopKBCMusic() {
+    this.stopAll(true);
+  }
 }
 
 window.sound = new SoundSynth();

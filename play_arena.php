@@ -407,6 +407,7 @@ try {
       answerLocked = true;
       sound.stopKBCMusic();
       sound.playLocked();
+      showLockedScreen({is_correct: true});
 
       const fd = new FormData();
       fd.append('pin_code', pin);
@@ -429,6 +430,7 @@ try {
       answerLocked = true;
       sound.stopKBCMusic();
       sound.playLocked();
+      showLockedScreen({is_correct: true});
 
       const val = document.getElementById('coding-input').value;
       const fd = new FormData();
