@@ -236,14 +236,31 @@ try {
 
           if (data.status !== currentState) {
             handleStateTransition(data.status, data);
+          } else if (data.status === 'ACTIVE_QUESTION' && data.current_question && data.current_question.id !== activeQuestionId) {
+            updateActiveQuestion(data);
           }
 
           // Active Timer updates
           if (data.status === 'ACTIVE_QUESTION') {
             document.getElementById('countdown-text').innerText = `${data.time_left}s Left`;
-            sound.playCountdown(data.time_left, data.current_question_index);
+            if (!answerLocked) {
+              sound.playCountdown(data.time_left, data.current_question_index);
+            } else {
+              sound.stopKBCMusic();
+            }
           }
         });
+    }
+
+    function updateActiveQuestion(data) {
+      answerLocked = false;
+      const q = data.current_question;
+      if (!q) return;
+      activeQuestionId = q.id;
+      
+      document.getElementById('active-q-text').innerText = q.text;
+      document.getElementById('active-q-index').innerText = `Question ${data.current_question_index + 1}`;
+      renderQuestionInputs(q);
     }
 
     function handleStateTransition(newState, data) {
@@ -284,13 +301,7 @@ try {
 
       // Initialize state view data
       if (newState === 'ACTIVE_QUESTION') {
-        answerLocked = false;
-        const q = data.current_question;
-        activeQuestionId = q.id;
-        
-        document.getElementById('active-q-text').innerText = q.text;
-        document.getElementById('active-q-index').innerText = `Question ${data.current_question_index + 1}`;
-        renderQuestionInputs(q);
+        updateActiveQuestion(data);
       } else if (newState === 'SHOWING_LEADERBOARD') {
         loadCorrectAnswersReview();
       }
@@ -394,7 +405,8 @@ try {
     function submitAnswer(optId) {
       if (answerLocked) return;
       answerLocked = true;
-      showLockedScreen();
+      sound.stopKBCMusic();
+      sound.playLocked();
 
       const fd = new FormData();
       fd.append('pin_code', pin);
@@ -404,14 +416,19 @@ try {
       fetch('api.php?action=submit_response', { method: 'POST', body: fd })
         .then(res => res.json())
         .then(data => {
-          showLockedScreen(data);
+          answerLocked = false;
+          if (data.is_correct === false) {
+            sound.playWrong();
+          }
+          pollLobby();
         });
     }
 
     function submitCodingChallenge() {
       if (answerLocked) return;
       answerLocked = true;
-      showLockedScreen();
+      sound.stopKBCMusic();
+      sound.playLocked();
 
       const val = document.getElementById('coding-input').value;
       const fd = new FormData();
@@ -422,7 +439,11 @@ try {
       fetch('api.php?action=submit_response', { method: 'POST', body: fd })
         .then(res => res.json())
         .then(data => {
-          showLockedScreen(data);
+          answerLocked = false;
+          if (data.is_correct === false) {
+            sound.playWrong();
+          }
+          pollLobby();
         });
     }
 
@@ -441,6 +462,7 @@ try {
             } else {
               banner.className = "p-5 rounded-2xl text-center border-2 font-black text-xl bg-red-500/10 text-red-700 border-red-500/30 backdrop-blur-md";
               banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="x-circle" class="w-6 h-6"></i> Incorrect Answer</span>`;
+              sound.playWrong();
             }
           } else {
             banner.className = "p-5 rounded-2xl text-center border-2 font-black text-xl bg-slate-500/10 text-slate-700 border-slate-500/30 backdrop-blur-md";

@@ -72,6 +72,13 @@ try {
         UNIQUE(session_id, username)
     )");
 
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN current_question_index INTEGER DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN question_started_at INTEGER DEFAULT 0");
+    } catch (PDOException $e) {}
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS session_responses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id INTEGER,
