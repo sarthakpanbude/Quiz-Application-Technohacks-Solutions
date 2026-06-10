@@ -69,7 +69,7 @@
   </header>
 
   <!-- Core Arena Switchboard -->
-  <main class="flex-grow w-full mx-auto flex items-center justify-center z-10 relative">
+  <main class="flex-grow w-full mx-auto flex flex-col justify-start items-center z-10 relative">
 
     <!-- LOBBY DISPLAY VIEW -->
     <div id="panel-LOBBY" class="w-full max-w-5xl space-y-6">
@@ -163,8 +163,8 @@
               </div>
           </div>
           <div class="glass-panel p-4 rounded-2xl flex items-center justify-center">
-              <button onclick="revealAnswer()" class="w-full h-full bg-red-650 hover:bg-red-750 text-white font-black py-2 px-4 rounded-xl text-sm transition-all shadow-md transform active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer">
-                <i data-lucide="power" class="w-4 h-4"></i> End & Reveal Podium
+              <button onclick="endSession()" class="w-full h-full bg-red-600 hover:bg-red-700 text-white font-black py-2 px-4 rounded-xl text-sm transition-all shadow-md transform active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer">
+                <i data-lucide="square" class="w-4 h-4"></i> End Quiz
               </button>
           </div>
       </div>
@@ -177,29 +177,63 @@
         <button id="btn-resume" onclick="resumeQuiz()" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl text-sm flex items-center gap-2 transition-all cursor-pointer shadow-md transform active:scale-95">
           <i data-lucide="play" class="w-4 h-4"></i> Resume Quiz
         </button>
-        <button onclick="skipQuestion()" class="bg-slate-700 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-xl text-sm flex items-center gap-2 transition-all cursor-pointer shadow-md transform active:scale-95">
-          <i data-lucide="skip-forward" class="w-4 h-4"></i> Skip Question
-        </button>
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
-        <!-- Center Left: Live Progress Tracker -->
-        <div class="lg:col-span-2 space-y-6">
-            <div class="p-8 rounded-[2rem] glass-panel shadow-sm flex flex-col h-full min-h-[500px]">
-                <h3 class="text-xs uppercase font-black text-slate-400 mb-6 tracking-wider flex items-center gap-2">
-                  <i data-lucide="activity" class="w-4 h-4 text-indigo-500"></i> Live Student Progress Tracker
-                </h3>
-                <div id="student-progress-box" class="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-grow">
-                    <p class="text-sm text-slate-400 italic text-center py-8">Waiting for candidates to join...</p>
-                </div>
+        <!-- Left: Live Rankings Table (2/3 width) -->
+        <div class="lg:col-span-2 space-y-6 flex flex-col">
+          <div class="glass-panel rounded-[2rem] p-6 flex-grow flex flex-col shadow-sm min-h-[500px]">
+            <div class="flex justify-between items-center mb-6">
+              <h3 class="text-xs uppercase font-black text-slate-400 tracking-wider flex items-center gap-2">
+                <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i> Live Rankings
+              </h3>
+              <span class="text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-700 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider animate-pulse">Real-Time</span>
             </div>
+            
+            <div class="overflow-x-auto flex-grow overflow-y-auto max-h-[500px]">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200/50 text-slate-400 text-xs font-black uppercase tracking-wider">
+                    <th class="py-3 px-4 text-center w-16">Rank</th>
+                    <th class="py-3 px-4">Player Name</th>
+                    <th class="py-3 px-4 text-center w-24">Streak</th>
+                    <th class="py-3 px-4 text-center w-32">Accuracy</th>
+                    <th class="py-3 px-4 text-right w-28">Score</th>
+                  </tr>
+                </thead>
+                <tbody id="leaderboard-body" class="divide-y divide-slate-100 font-medium text-sm text-slate-700">
+                  <tr>
+                    <td colspan="5" class="py-12 text-center text-slate-400 italic">
+                      Waiting for player telemetry updates...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        <!-- Right: Live Leaderboard (Top 10) -->
-        <div class="glass-panel p-6 rounded-[2rem] shadow-sm flex flex-col h-full max-h-[600px]">
-            <h3 class="text-xs uppercase font-black text-slate-400 mb-4 tracking-wider flex items-center gap-2"><i data-lucide="trophy" class="w-4 h-4"></i> Live Top 10 Leaderboard</h3>
-            <div id="live-scores-box" class="space-y-2 overflow-y-auto pr-2 custom-scrollbar flex-grow">
-                <!-- Ranks -->
+        <!-- Right: Student Progress Tracker & Option Pick Distribution (1/3 width) -->
+        <div class="space-y-6 flex flex-col">
+          <!-- Player Progress Card -->
+          <div class="glass-panel rounded-[2rem] p-6 flex-grow flex flex-col shadow-sm max-h-[400px] overflow-y-auto">
+            <h3 class="text-xs uppercase font-black text-slate-400 tracking-wider flex items-center gap-2 mb-4">
+              <i data-lucide="activity" class="w-4 h-4 text-indigo-500"></i> Student Progress Tracker
+            </h3>
+            
+            <div class="flex-grow overflow-y-auto space-y-4 pr-1" id="student-progress-box">
+              <p class="text-sm text-slate-400 italic text-center py-12">Waiting for candidate telemetry...</p>
             </div>
+          </div>
+
+          <!-- Option Pick Distribution Card -->
+          <div class="glass-panel rounded-[2rem] p-5 shadow-sm">
+            <h4 class="text-xs uppercase font-black text-slate-400 tracking-wider flex items-center gap-2 mb-3">
+              <i data-lucide="bar-chart-2" class="w-4 h-4 text-emerald-500"></i> Option Pick Distribution
+            </h4>
+            <div id="option-distribution-box" class="space-y-3">
+              <p class="text-xs text-slate-400 italic text-center py-4">Waiting for responses to show distribution...</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -235,9 +269,10 @@
             <!-- Rank listings -->
           </div>
 
-          <div class="mt-6 text-center p-4 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl font-black flex items-center justify-center gap-2 shadow-inner">
-            <i data-lucide="loader" class="w-5 h-5 text-indigo-500 animate-spin"></i>
-            <span id="auto-next-text">Switching to next question...</span>
+          <div class="mt-6">
+            <button onclick="nextQuestion()" class="w-full bg-indigo-600 hover:bg-indigo-750 text-white font-black py-3 px-6 rounded-xl text-sm transition-all shadow-md transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer animate-pulse">
+              <i data-lucide="chevron-right" class="w-5 h-5"></i> Next Question
+            </button>
           </div>
         </div>
       </div>
@@ -314,7 +349,15 @@
     window.addEventListener('load', () => {
       sound.playLobby();
       pollLobby();
-      intervalId = setInterval(pollLobby, 1000); // 1 sec updates for real-time dashboard
+      intervalId = setInterval(pollLobby, 300); // 300ms updates for real-time dashboard
+
+      document.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input[type="submit"]')) {
+          if (window.sound && typeof window.sound.playClick === 'function') {
+            window.sound.playClick();
+          }
+        }
+      });
     });
 
     function toggleMute() {
@@ -364,6 +407,10 @@
             return;
           }
 
+          if (data.audio_config) {
+            sound.setAudioConfig(data.audio_config);
+          }
+
           document.getElementById('header-quiz-title').innerText = data.quiz_title;
 
           // Music mute sync from settings
@@ -391,6 +438,11 @@
             refreshLobbyPlayers(data.players);
           } else if (data.status === 'ACTIVE_QUESTION') {
             refreshActiveQuestion(data);
+            if (data.is_paused === 1) {
+              sound.stopAllQuestionMusic();
+            } else {
+              sound.playCountdown(data.time_left);
+            }
           }
         });
     }
@@ -427,9 +479,14 @@
       // Audio loops controls
       if (newState === 'LOBBY') sound.playLobby();
       else if (newState === 'FINISHED') {
-        sound.playVictory();
+        sound.playWinner();
+        sound.playTrophy();
+        sound.playConfetti();
         loadPodiumStandings();
         clearInterval(intervalId); // stop polling on completion
+      } else if (newState === 'SHOWING_LEADERBOARD') {
+        sound.stopAll(true);
+        sound.playLeaderboardReveal();
       } else {
         const forceStop = (newState === 'SHOWING_LEADERBOARD');
         sound.stopAll(forceStop);
@@ -440,9 +497,6 @@
         refreshActiveQuestion(data);
       } else if (newState === 'SHOWING_LEADERBOARD') {
         loadLeaderboardChoices();
-        autoNextTimeout = setTimeout(() => {
-          if (currentState === 'SHOWING_LEADERBOARD') nextQuestion();
-        }, 5000);
       }
 
       lucide.createIcons();
@@ -462,14 +516,24 @@
         }, 250);
     }
 
-    // Lobby Helpers
+    let lastPlayersCount = 0;
     function refreshLobbyPlayers(players) {
       const box = document.getElementById('lobby-players-box');
       const countSpan = document.getElementById('lobby-count');
       const startBtn = document.getElementById('start-btn');
 
-      countSpan.innerText = players.length;
-      if (players.length > 0) {
+      const currentCount = players ? players.length : 0;
+      if (currentState === 'LOBBY') {
+        if (currentCount > lastPlayersCount) {
+          sound.playJoin();
+        } else if (currentCount < lastPlayersCount) {
+          sound.playLeave();
+        }
+      }
+      lastPlayersCount = currentCount;
+
+      countSpan.innerText = currentCount;
+      if (currentCount > 0) {
         startBtn.disabled = false;
         box.innerHTML = players.map(p => `
           <span class="text-sm font-bold bg-indigo-50 border border-indigo-100 text-indigo-700 py-2 px-4 rounded-xl shadow-sm">${p}</span>
@@ -512,32 +576,51 @@
             : 0;
           document.getElementById('dash-completion-rate').innerText = `${completionPct}%`;
 
-          // Render Live Leaderboard (Top 10)
-          const top10Players = telemetry.players.slice(0, 10);
-          const box = document.getElementById('live-scores-box');
-          box.innerHTML = top10Players.map((t, idx) => `
-            <div class="flex justify-between items-center p-3 rounded-xl bg-white border border-slate-100 shadow-sm transition-all">
-              <div class="flex items-center gap-3">
-                <span class="w-6 text-center font-bold text-slate-400 text-xs">#${idx+1}</span>
-                <span class="text-sm font-bold text-slate-800">${t.name}</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">${t.score}</span>
-                <span class="text-[10px] px-2.5 py-1 rounded-lg font-bold uppercase ${
-                  t.current_question_index >= telemetry.total_questions 
-                    ? 'bg-green-100 text-green-700' 
-                    : 'bg-indigo-50 text-indigo-650'
-                }">
-                  ${t.current_question_index >= telemetry.total_questions ? 'Finished' : `Q${t.current_question_index + 1}`}
-                </span>
-              </div>
-            </div>
-          `).join('');
+          // Render Live Rankings Table (All Players)
+          const leaderBody = document.getElementById('leaderboard-body');
+          if (!telemetry.players || telemetry.players.length === 0) {
+            leaderBody.innerHTML = `
+              <tr>
+                <td colspan="5" class="py-12 text-center text-slate-450 italic">
+                  No players joined the session yet.
+                </td>
+              </tr>
+            `;
+          } else {
+            leaderBody.innerHTML = telemetry.players.map((p, index) => {
+              const rank = index + 1;
+              let medal = rank;
+              if (rank === 1) medal = "🥇";
+              else if (rank === 2) medal = "🥈";
+              else if (rank === 3) medal = "🥉";
 
-          // Render Live Progress Feed (All Players)
+              const streakHtml = p.streak > 1 ? `<span class="text-xs text-amber-650 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-bold font-mono">🔥 ${p.streak}</span>` : '';
+              
+              const accuracy = p.current_question_index > 0 
+                ? Math.round((p.correct_count / p.current_question_index) * 100) 
+                : 0;
+
+              return `
+                <tr class="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                  <td class="py-4 px-4 text-center font-black text-slate-700 text-lg">${medal}</td>
+                  <td class="py-4 px-4 font-bold text-slate-800 flex items-center gap-2">
+                    ${p.name} ${streakHtml}
+                  </td>
+                  <td class="py-4 px-4 text-center font-semibold text-slate-650 font-mono">${p.streak}</td>
+                  <td class="py-4 px-4 text-center">
+                    <div class="text-slate-850 font-bold font-mono">${p.correct_count}/${p.current_question_index}</div>
+                    <div class="text-[10px] text-slate-450">${accuracy}% Acc</div>
+                  </td>
+                  <td class="py-4 px-4 text-right font-black text-indigo-650 font-mono text-base">${p.score} pts</td>
+                </tr>
+              `;
+            }).join('');
+          }
+
+          // Render Student Progress Tracker (All Players)
           const progressBox = document.getElementById('student-progress-box');
-          if (telemetry.players.length === 0) {
-            progressBox.innerHTML = `<p class="text-sm text-slate-400 italic text-center py-8">Waiting for candidates to join...</p>`;
+          if (!telemetry.players || telemetry.players.length === 0) {
+            progressBox.innerHTML = `<p class="text-sm text-slate-400 italic text-center py-12">Waiting for candidate telemetry...</p>`;
           } else {
             progressBox.innerHTML = telemetry.players.map((t) => {
               const total = telemetry.total_questions || 1;
@@ -546,41 +629,54 @@
               
               const isFinished = t.current_question_index >= total;
               const badgeClass = isFinished 
-                ? 'bg-green-100 text-green-700 border border-green-200' 
-                : 'bg-indigo-50 text-indigo-700 border border-indigo-200';
-              const badgeText = isFinished ? 'Finished' : `Q${current + 1}/${total}`;
+                ? 'bg-green-50 border border-green-200 text-green-700 font-bold' 
+                : 'bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold';
+              const badgeText = isFinished ? 'Done' : `Q${current}/${total}`;
               
-              const streakHtml = t.streak > 1 ? `<span class="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg font-bold font-mono">🔥 ${t.streak}</span>` : '';
+              const accuracy = current > 0 ? Math.round((t.correct_count / current) * 100) : 0;
               
               return `
-                <div class="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all">
-                  <div class="flex items-center gap-4 min-w-[180px]">
-                    <div>
-                      <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-                        ${t.name} ${streakHtml}
-                      </h4>
-                      <p class="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
-                        Score: <span class="text-indigo-650 font-mono">${t.score}</span> | Accuracy: <span class="text-green-600 font-mono">${t.correct_count}/${current}</span>
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <!-- Progress Bar -->
-                  <div class="flex-grow">
-                    <div class="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
-                      <span>Progress</span>
-                      <span>${pct}%</span>
-                    </div>
-                    <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200 shadow-inner">
-                      <div class="bg-gradient-to-r from-indigo-500 to-cyan-500 h-2.5 rounded-full bar-chart-fill" style="width: ${pct}%"></div>
-                    </div>
-                  </div>
-
-                  <!-- Status Badge -->
-                  <div class="flex items-center justify-end min-w-[90px]">
-                    <span class="text-xs px-3 py-1.5 rounded-xl font-black uppercase tracking-wider ${badgeClass}">
+                <div class="p-4 rounded-xl bg-white border border-slate-100 shadow-sm flex flex-col gap-2 transition-all">
+                  <div class="flex justify-between items-center">
+                    <h5 class="font-bold text-slate-800 text-sm">${t.name}</h5>
+                    <span class="text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider border ${badgeClass}">
                       ${badgeText}
                     </span>
+                  </div>
+                  <!-- Mini Progress Bar -->
+                  <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200 shadow-inner">
+                    <div class="bg-gradient-to-r from-indigo-500 to-cyan-500 h-2 rounded-full bar-chart-fill" style="width: ${pct}%"></div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-x-4 gap-y-1 mt-1 text-[10px] text-slate-500 font-bold uppercase tracking-wider font-mono border-t border-slate-50 pt-2">
+                    <div>Score: <span class="text-indigo-650">${t.score}</span></div>
+                    <div>Accuracy: <span class="text-purple-600">${accuracy}%</span></div>
+                    <div>Correct: <span class="text-green-600">${t.correct_count}</span></div>
+                    <div>Wrong: <span class="text-red-500">${t.wrong_count}</span></div>
+                    <div>Skipped: <span class="text-amber-600">${t.skipped_count}</span></div>
+                    <div>Remaining: <span class="text-slate-650">${t.remaining}</span></div>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+
+          // Render Option Pick Distribution
+          const optionDistBox = document.getElementById('option-distribution-box');
+          if (!telemetry.option_counts || telemetry.option_counts.length === 0) {
+            optionDistBox.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4">Waiting for responses to show distribution...</p>`;
+          } else {
+            const totalPickCount = telemetry.option_counts.reduce((sum, o) => sum + parseInt(o.pick_count || 0), 0);
+            optionDistBox.innerHTML = telemetry.option_counts.map(o => {
+              const count = parseInt(o.pick_count || 0);
+              const pct = totalPickCount > 0 ? Math.round((count / totalPickCount) * 100) : 0;
+              return `
+                <div class="space-y-1">
+                  <div class="flex justify-between text-xs text-slate-600">
+                    <span class="font-bold truncate max-w-[180px]">${o.text}</span>
+                    <span class="font-mono font-bold">${count} (${pct}%)</span>
+                  </div>
+                  <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                    <div class="bg-emerald-500 h-2 rounded-full bar-chart-fill" style="width: ${pct}%"></div>
                   </div>
                 </div>
               `;
@@ -700,41 +796,49 @@
     }
 
     // Action Triggers
+    function endSession() {
+      if (confirm("Are you sure you want to end this quiz for all participants?")) {
+        const fd = new FormData();
+        fd.append('pin_code', pin);
+        fetch('api.php?action=end_session', { method: 'POST', body: fd }).then(() => pollLobby());
+      }
+    }
+
     function startQuiz() {
       sound.playStartSequence();
       const fd = new FormData();
       fd.append('pin_code', pin);
-      fetch('api.php?action=start_session', { method: 'POST', body: fd });
+      fetch('api.php?action=start_session', { method: 'POST', body: fd }).then(() => pollLobby());
     }
 
     function revealAnswer() {
       const fd = new FormData();
       fd.append('pin_code', pin);
-      fetch('api.php?action=next_question', { method: 'POST', body: fd });
+      fetch('api.php?action=next_question', { method: 'POST', body: fd }).then(() => pollLobby());
     }
 
     function nextQuestion() {
       const fd = new FormData();
       fd.append('pin_code', pin);
-      fetch('api.php?action=next_question', { method: 'POST', body: fd });
+      fetch('api.php?action=next_question', { method: 'POST', body: fd }).then(() => pollLobby());
     }
 
     function pauseQuiz() {
       const fd = new FormData();
       fd.append('pin_code', pin);
-      fetch('api.php?action=pause_quiz', { method: 'POST', body: fd });
+      fetch('api.php?action=pause_quiz', { method: 'POST', body: fd }).then(() => pollLobby());
     }
 
     function resumeQuiz() {
       const fd = new FormData();
       fd.append('pin_code', pin);
-      fetch('api.php?action=resume_quiz', { method: 'POST', body: fd });
+      fetch('api.php?action=resume_quiz', { method: 'POST', body: fd }).then(() => pollLobby());
     }
 
     function skipQuestion() {
       const fd = new FormData();
       fd.append('pin_code', pin);
-      fetch('api.php?action=skip_question', { method: 'POST', body: fd });
+      fetch('api.php?action=skip_question', { method: 'POST', body: fd }).then(() => pollLobby());
     }
 
     function exportResults() {

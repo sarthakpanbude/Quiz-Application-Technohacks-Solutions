@@ -88,7 +88,7 @@ try {
   </header>
 
   <!-- Student Play board Switchboard -->
-  <main class="flex-grow w-full mx-auto flex items-center justify-center z-10 relative">
+  <main class="flex-grow w-full mx-auto flex flex-col justify-start items-center z-10 relative">
 
     <!-- LOBBY WAITING SCREEN -->
     <div id="panel-LOBBY" class="w-full max-w-lg text-center space-y-4">
@@ -214,10 +214,19 @@ try {
     window.addEventListener('load', () => {
       sound.playLobby();
       pollLobby();
-      intervalId = setInterval(pollLobby, 1000); // 1 second updates
+      intervalId = setInterval(pollLobby, 300); // 300ms updates
+
+      document.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input[type="submit"]')) {
+          if (window.sound && typeof window.sound.playClick === 'function') {
+            window.sound.playClick();
+          }
+        }
+      });
     });
 
     function pollLobby() {
+      if (transitioningToNext) return;
       fetch('api.php?action=get_lobby_state&pin_code=' + pin)
         .then(res => res.json())
         .then(data => {
@@ -225,6 +234,10 @@ try {
             alert(data.error);
             exitArena();
             return;
+          }
+
+          if (data.audio_config) {
+            sound.setAudioConfig(data.audio_config);
           }
 
           document.getElementById('header-quiz-title').innerText = data.quiz_title;
@@ -246,10 +259,10 @@ try {
           }
 
           if (data.status === 'ACTIVE_QUESTION') {
-            if (data.already_answered) {
-              answerLocked = true;
-              showLockedScreen({is_correct: true});
-              sound.stopKBCMusic();
+            if (data.already_answered && !transitioningToNext) {
+              // Auto-advance since response has been processed
+              pollLobby();
+              return;
             }
             if (data.is_paused === 1) {
               document.getElementById('countdown-text').innerText = `[Paused] ${data.time_left}s Left`;
@@ -272,6 +285,8 @@ try {
       if (!q) return;
       activeQuestionId = q.id;
       
+      sound.playReveal();
+
       document.getElementById('active-q-text').innerText = q.text;
       document.getElementById('active-q-index').innerText = `Question ${data.current_question_index + 1}`;
       renderQuestionInputs(q);
@@ -306,9 +321,14 @@ try {
       // Audio loops controls
       if (newState === 'LOBBY') sound.playLobby();
       else if (newState === 'FINISHED') {
-        sound.playVictory();
+        sound.playWinner();
+        sound.playTrophy();
+        sound.playConfetti();
         loadFinalStandings();
         clearInterval(intervalId); // stop polling on conclude
+      } else if (newState === 'SHOWING_LEADERBOARD') {
+        sound.stopAll(true);
+        sound.playLeaderboardReveal();
       } else {
         sound.stopAll();
       }
@@ -347,13 +367,7 @@ try {
 
     // Input render helpers
     let selectedOptionId = null;
-    let autoSubmit = localStorage.getItem('auto_submit') !== 'false';
-
-    function toggleAutoSubmit(checked) {
-      autoSubmit = checked;
-      localStorage.setItem('auto_submit', checked ? 'true' : 'false');
-      pollLobby();
-    }
+    let autoSubmit = false;
 
     function selectOption(optId, btnIndex) {
       if (answerLocked) return;
@@ -414,10 +428,6 @@ try {
         box.innerHTML = `
           <div class="flex items-center justify-between px-2 mb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
             <span class="flex items-center gap-1.5"><i data-lucide="list" class="w-3.5 h-3.5"></i> Select Option</span>
-            <label class="flex items-center gap-2 cursor-pointer select-none text-slate-500 hover:text-slate-700 transition-colors">
-              <input type="checkbox" onchange="toggleAutoSubmit(this.checked)" ${autoSubmit ? 'checked' : ''} class="accent-indigo-650 h-4 w-4 cursor-pointer" />
-              <span>Auto-Submit on Click</span>
-            </label>
           </div>
           <div id="options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             ${q.options.map((opt, idx) => `
@@ -443,38 +453,60 @@ try {
         `;
       }
       lucide.createIcons();
-    }
+    }    let transitioningToNext = false;
 
     // Lock Submit screen
-    function showLockedScreen(data = null) {
+    function showLockedScreen() {
       const box = document.getElementById('inputs-box');
-      if (data && data.is_correct !== undefined) {
-         box.innerHTML = `
-           <div class="text-center p-10 md:p-14 glass-panel rounded-[2rem] shadow-2xl space-y-6 transform transition-all animate-[scale-in_0.3s_ease-out]">
-             <div class="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center mx-auto text-5xl mb-6 shadow-xl text-indigo-600">
-               <i data-lucide="lock" class="w-10 h-10"></i>
-             </div>
-             <h3 class="font-black text-3xl md:text-4xl text-slate-900">Answer Locked In!</h3>
-             <div class="text-xl font-bold px-6 py-3 rounded-2xl inline-block bg-slate-100 text-slate-700 border border-slate-200">
-                Waiting for the results...
-             </div>
-             <p class="text-md font-semibold text-slate-500 mt-8 animate-pulse flex items-center justify-center gap-2">
-                <i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Host will reveal answer shortly...
-             </p>
-           </div>
-         `;
-         lucide.createIcons();
-      } else {
+      box.innerHTML = `
+        <div class="text-center p-12 glass-panel rounded-[2rem] space-y-5">
+          <div class="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center mx-auto text-indigo-650">
+            <i data-lucide="loader" class="w-10 h-10 animate-spin"></i>
+          </div>
+          <h3 class="font-black text-2xl text-slate-900">Submitting Answer...</h3>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    function showFeedbackScreen(data) {
+      transitioningToNext = true;
+      const box = document.getElementById('inputs-box');
+      
+      const isCorrect = data.is_correct;
+      const scoreEarned = data.score_earned || 0;
+      
+      if (isCorrect) {
         box.innerHTML = `
-          <div class="text-center p-12 glass-panel rounded-[2rem] space-y-5">
-            <div class="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center mx-auto text-indigo-600">
-              <i data-lucide="loader" class="w-10 h-10 animate-spin"></i>
+          <div class="text-center p-10 md:p-14 bg-emerald-50 border border-emerald-200 rounded-[2rem] shadow-2xl space-y-6 transform transition-all animate-[scale-in_0.3s_ease-out]">
+            <div class="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center mx-auto text-5xl mb-6 shadow-md text-emerald-600">
+              <i data-lucide="check" class="w-12 h-12"></i>
             </div>
-            <h3 class="font-black text-2xl text-slate-900">Submitting Answer...</h3>
+            <h3 class="font-sans font-black text-3xl md:text-4xl text-emerald-800">Correct Answer!</h3>
+            <div class="text-xl font-bold px-6 py-3 rounded-2xl inline-block bg-emerald-100 text-emerald-700 border border-emerald-200">
+               +${scoreEarned} Points
+            </div>
           </div>
         `;
-        lucide.createIcons();
+      } else {
+        box.innerHTML = `
+          <div class="text-center p-10 md:p-14 bg-rose-50 border border-rose-200 rounded-[2rem] shadow-2xl space-y-6 transform transition-all animate-[scale-in_0.3s_ease-out]">
+            <div class="w-24 h-24 rounded-full bg-rose-100 flex items-center justify-center mx-auto text-5xl mb-6 shadow-md text-rose-600">
+              <i data-lucide="x" class="w-12 h-12"></i>
+            </div>
+            <h3 class="font-sans font-black text-3xl md:text-4xl text-rose-800">Wrong Answer!</h3>
+            <div class="text-xl font-bold px-6 py-3 rounded-2xl inline-block bg-rose-100 text-rose-700 border border-rose-200">
+               0 Points
+            </div>
+          </div>
+        `;
       }
+      lucide.createIcons();
+
+      setTimeout(() => {
+        transitioningToNext = false;
+        pollLobby();
+      }, 1000);
     }
 
     // Submit actions
@@ -483,7 +515,7 @@ try {
       answerLocked = true;
       sound.stopKBCMusic();
       sound.playLocked();
-      showLockedScreen({is_correct: true});
+      showLockedScreen();
 
       const fd = new FormData();
       fd.append('pin_code', pin);
@@ -494,10 +526,12 @@ try {
         .then(res => res.json())
         .then(data => {
           answerLocked = false;
-          if (data.is_correct === false) {
+          if (data.is_correct) {
+            sound.playCorrect();
+          } else {
             sound.playWrong();
           }
-          pollLobby();
+          showFeedbackScreen(data);
         });
     }
 
@@ -506,7 +540,7 @@ try {
       answerLocked = true;
       sound.stopKBCMusic();
       sound.playLocked();
-      showLockedScreen({is_correct: true});
+      showLockedScreen();
 
       const val = document.getElementById('coding-input').value;
       const fd = new FormData();
@@ -518,10 +552,12 @@ try {
         .then(res => res.json())
         .then(data => {
           answerLocked = false;
-          if (data.is_correct === false) {
+          if (data.is_correct) {
+            sound.playCorrect();
+          } else {
             sound.playWrong();
           }
-          pollLobby();
+          showFeedbackScreen(data);
         });
     }
 

@@ -41,9 +41,6 @@ session_start();
         <button onclick="switchTab('HISTORY')" id="tab-HISTORY" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="history" class="w-4 h-4"></i> Quiz History
         </button>
-        <button onclick="switchTab('SCORING')" id="tab-SCORING" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
-          <i data-lucide="award" class="w-4 h-4"></i> Live Scoring
-        </button>
         <button onclick="switchTab('PRESENT')" id="tab-PRESENT" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="presentation" class="w-4 h-4"></i> Present Host
         </button>
@@ -72,7 +69,7 @@ session_start();
   </header>
 
   <!-- Main Portal Workspace -->
-  <main class="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col justify-center">
+  <main class="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col justify-start">
 
     <!-- JOIN TAB VIEW -->
     <div id="panel-JOIN" class="tab-panel flex-grow flex items-center justify-center py-12">
@@ -90,8 +87,8 @@ session_start();
 
         <!-- PIN Step Form -->
         <form id="pin-form" onsubmit="submitPIN(event)" class="space-y-4">
-          <input type="text" id="pin-input" required placeholder="PIN Code" class="w-full text-center font-mono font-black text-5xl tracking-widest bg-slate-50 border-4 border-slate-200 focus:border-indigo-650 focus:outline-none rounded-[1.5rem] p-6 text-slate-800 focus:ring-4 focus:ring-indigo-550/10 shadow-inner" maxlength="6" />
-          <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-[1.5rem] text-sm transition-colors cursor-pointer shadow-md">
+          <input type="text" id="pin-input" required placeholder="PIN Code" class="w-full text-center font-mono font-bold text-2xl tracking-widest bg-slate-50 border-2 border-slate-200 focus:border-indigo-650 focus:outline-none rounded-xl p-4 text-slate-800 focus:ring-4 focus:ring-indigo-550/10 shadow-inner" maxlength="6" />
+          <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-xl text-sm transition-colors cursor-pointer shadow-md">
             Enter Game Lobby
           </button>
         </form>
@@ -131,22 +128,7 @@ session_start();
       </div>
     </div>
 
-    <!-- SCORING TAB VIEW -->
-    <div id="panel-SCORING" class="tab-panel hidden space-y-6">
-      <div class="flex justify-between items-center">
-        <div>
-          <h2 class="font-sans text-2xl font-extrabold text-slate-900">Live Scoring Dashboard</h2>
-          <p class="text-slate-500 text-sm">Monitor all active quiz sessions and check live progress in real-time.</p>
-        </div>
-        <button onclick="loadLiveScoringSessions()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2.5 px-4 rounded-xl border border-indigo-200 text-xs flex items-center gap-1.5 transition-colors cursor-pointer">
-          <i data-lucide="refresh-cw" class="w-4 h-4"></i> Reload Live List
-        </button>
-      </div>
 
-      <div id="scoring-sessions-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Active live sessions loaded here -->
-      </div>
-    </div>
 
     <!-- PRESENT TAB VIEW -->
     <div id="panel-PRESENT" class="tab-panel hidden space-y-8 py-6">
@@ -494,8 +476,8 @@ session_start();
     <div class="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center text-slate-400 text-xs gap-3">
       <span>&copy; <?php echo date('Y'); ?> TechnoHacks Solutions Institute. All rights reserved.</span>
       <div class="flex gap-4 font-semibold text-slate-500 items-center">
-        <span class="cursor-pointer hover:text-slate-700 flex items-center gap-1" onclick="switchTab('ADMIN')"><i data-lucide="shield-half" class="w-3.5 h-3.5"></i> Admin Access</span>
-        <span>&middot;</span>
+        <span class="cursor-pointer hover:text-slate-700 flex items-center gap-1 student-only" onclick="switchTab('ADMIN')"><i data-lucide="shield-half" class="w-3.5 h-3.5"></i> Admin Access</span>
+        <span class="student-only">&middot;</span>
         <span class="cursor-pointer hover:text-slate-700">Terms of Use</span>
         <span>&middot;</span>
         <span class="cursor-pointer hover:text-slate-700">Privacy Policy</span>
@@ -531,8 +513,6 @@ session_start();
         loadDashboardStats();
       } else if (tabId === 'HISTORY') {
         loadHistorySessions();
-      } else if (tabId === 'SCORING') {
-        loadLiveScoringSessions();
       } else if (tabId === 'SETTINGS') {
         loadGlobalSettings();
       }
@@ -572,75 +552,21 @@ session_start();
     let currentActiveCategory = '';
 
     function loadGlobalSettings() {
-      // Inject the Audio tab as a special local-only category
-      if (!currentSettingsData['Audio & Music']) {
-        currentSettingsData['Audio & Music'] = '__AUDIO_PANEL__';
-      }
       fetch('api.php?action=get_settings')
         .then(res => res.json())
         .then(data => {
           if (data.success && data.settings) {
-            // Merge: keep Audio tab at the top, then all DB categories
             const merged = { 'Audio & Music': '__AUDIO_PANEL__' };
             Object.assign(merged, data.settings);
             currentSettingsData = merged;
             renderSettingsCategories();
-            // Also populate dropdowns from audio files
-            loadAudioDropdowns();
           }
-        });
-    }
-
-    function loadAudioDropdowns() {
-      fetch('api.php?action=get_audio_files')
-        .then(res => res.json())
-        .then(data => {
-          if (!data.success || !data.files) return;
-          const dropdownIds = ['settings-start-music', 'settings-question-music', 'settings-locked-music', 'settings-wrong-music'];
-          dropdownIds.forEach(id => {
-            const dropdown = document.getElementById(id);
-            if (!dropdown) return;
-            const currentValue = dropdown.value || localStorage.getItem(id.replace(/-/g,'_')) || '';
-            // Keep existing hardcoded options, just append new files
-            data.files.forEach(file => {
-              if ([...dropdown.options].some(o => o.value === file.path)) return;
-              const opt = document.createElement('option');
-              opt.value = file.path;
-              opt.textContent = file.name;
-              dropdown.appendChild(opt);
-            });
-            if (currentValue && [...dropdown.options].some(o => o.value === currentValue)) {
-              dropdown.value = currentValue;
-            }
-          });
-          // Restore saved selections
-          const saved = {
-            'settings-start-music': localStorage.getItem('settings_start_music') || 'assets/audio/chalo.mp3',
-            'settings-question-music': localStorage.getItem('settings_question_music') || 'SYNTH_KAHOOT_QUESTION',
-            'settings-locked-music': localStorage.getItem('settings_locked_music') || 'SYNTH_KAHOOT_LOCKED',
-            'settings-wrong-music': localStorage.getItem('settings_wrong_music') || 'SYNTH_KAHOOT_WRONG',
-          };
-          for (const id in saved) {
-            const el = document.getElementById(id);
-            if (el && [...el.options].some(o => o.value === saved[id])) el.value = saved[id];
-          }
-          // Restore mute button state
-          const muteBtn = document.getElementById('settings-mute-btn');
-          if (muteBtn) {
-            if (localStorage.getItem('settings_music_enabled') === 'false') {
-              muteBtn.innerHTML = `<i data-lucide="volume-x" class="w-4 h-4 text-red-500"></i> Sound Muted`;
-              muteBtn.className = 'bg-red-50 hover:bg-red-100 text-red-650 font-bold text-xs px-4 py-2.5 rounded-xl border border-red-200 flex items-center gap-1.5 cursor-pointer transition-colors';
-            } else {
-              muteBtn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i> Sound Active`;
-              muteBtn.className = 'bg-indigo-50 hover:bg-indigo-100 text-indigo-750 font-bold text-xs px-4 py-2.5 rounded-xl border border-indigo-200 flex items-center gap-1.5 cursor-pointer transition-colors';
-            }
-          }
-          lucide.createIcons();
         });
     }
 
     function renderSettingsCategories() {
       const list = document.getElementById('settings-categories-list');
+      if (!list) return;
       list.innerHTML = '';
       const categories = Object.keys(currentSettingsData);
       
@@ -677,72 +603,816 @@ session_start();
 
       // Special: Audio & Music tab renders dedicated UI
       if (category === 'Audio & Music') {
-        container.innerHTML = `
-          <div class="space-y-6 pb-12">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
-                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Starting Music (Lobby / Launch)</label>
-                <select id="settings-start-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
-                  <option value="assets/audio/chalo.mp3">Chalo Vocal (KBC)</option>
-                  <option value="assets/audio/kbc_intro.webm">KBC Intro Theme</option>
-                  <option value="assets/audio/kbc_music.webm">KBC Classic Background</option>
-                </select>
-              </div>
-              <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
-                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Active Question Music</label>
-                <select id="settings-question-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
-                  <option value="SYNTH_KAHOOT_QUESTION">Kahoot Style (Synthesized)</option>
-                  <option value="assets/audio/kbc_music.webm">KBC Classic Background</option>
-                  <option value="assets/audio/kbc_intro.webm">KBC Intro Theme</option>
-                </select>
-              </div>
-              <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
-                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Lock-in Sound (Student Submission)</label>
-                <select id="settings-locked-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
-                  <option value="SYNTH_KAHOOT_LOCKED">Kahoot Pop (Synthesized)</option>
-                  <option value="assets/audio/kbc_locked.mp3">KBC Answer Locked-In</option>
-                  <option value="assets/audio/chalo.mp3">Chalo Vocal (KBC)</option>
-                </select>
-              </div>
-              <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
-                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Wrong Answer Sound</label>
-                <select id="settings-wrong-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
-                  <option value="SYNTH_KAHOOT_WRONG">Retro Buzzer (Synthesized)</option>
-                  <option value="assets/audio/kbc_wrong.mp3">KBC Wrong Answer</option>
-                </select>
-              </div>
-            </div>
+        if (typeof onAudioScopeChange === 'function') {
+            onAudioScopeChange(currentAudioScope || '0');
+        }
+        return;
+      }
 
-            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between">
-              <div>
-                <p class="text-xs font-bold text-slate-700">Volume Mute Override</p>
-                <p class="text-[10px] text-slate-400 mt-0.5">Mute or unmute all game audio globally</p>
+      container.innerHTML = '<div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12"></div>';
+      const grid = container.querySelector('.grid');
+      
+      const fields = currentSettingsData[category];
+      for (const key in fields) {
+        const meta = fields[key];
+        const wrap = document.createElement('div');
+        wrap.className = 'bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2';
+        
+        const label = document.createElement('label');
+        label.className = 'block text-[10px] font-bold text-slate-500 uppercase tracking-wider';
+        label.innerText = meta.label;
+        wrap.appendChild(label);
+        
+        if (meta.type === 'boolean') {
+           const select = document.createElement('select');
+           select.className = 'w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-indigo-500 rounded-lg p-2.5 text-slate-800 text-xs font-semibold cursor-pointer';
+           select.innerHTML = `<option value="1" ${meta.value == "1" ? "selected" : ""}>Enabled</option><option value="0" ${meta.value == "0" ? "selected" : ""}>Disabled</option>`;
+           select.onchange = (e) => { currentSettingsData[category][key].value = e.target.value; };
+           wrap.appendChild(select);
+        } else if (meta.type === 'select') {
+           const select = document.createElement('select');
+           select.className = 'w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-indigo-500 rounded-lg p-2.5 text-slate-800 text-xs font-semibold cursor-pointer';
+           const opts = meta.options.split(',');
+           opts.forEach(o => {
+               const option = document.createElement('option');
+               option.value = o;
+               option.innerText = o;
+               if (meta.value == o) option.selected = true;
+               select.appendChild(option);
+           });
+           select.onchange = (e) => { currentSettingsData[category][key].value = e.target.value; };
+           wrap.appendChild(select);
+        } else {
+           const input = document.createElement('input');
+           input.type = meta.type === 'number' ? 'number' : 'text';
+           input.className = 'w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-indigo-500 rounded-lg p-2.5 text-slate-800 text-xs font-semibold';
+           input.value = meta.value;
+           input.onchange = (e) => { currentSettingsData[category][key].value = e.target.value; };
+           wrap.appendChild(input);
+        }
+        grid.appendChild(wrap);
+      }
+    }
+
+    let currentAudioConfig = {};
+    let currentAudioScope = ""; 
+    let audioOverrideEnabled = false;
+    let uploadedAudioFiles = [];
+
+    const AUDIO_CATEGORIES_METADATA = {
+      lobby: { label: "Lobby Music", type: "music", loopable: true, default_file: "SYNTH_LOBBY", desc: "Played in lobby before quiz starts" },
+      start: { label: "Quiz Start Music", type: "music", loopable: false, default_file: "assets/audio/chalo.mp3", desc: "Plays when host starts the quiz" },
+      reveal: { label: "Question Reveal Sound", type: "effect", loopable: false, default_file: "SYNTH_REVEAL", desc: "Plays when a new question appears" },
+      background: { label: "Question Background Music", type: "music", loopable: true, default_file: "SYNTH_KAHOOT_QUESTION", desc: "Played while students solve questions" },
+      countdown: { label: "Final Countdown Music", type: "music", loopable: false, default_file: "SYNTH_FINAL_COUNTDOWN", desc: "Starts when timer reaches last 10 seconds" },
+      submit: { label: "Answer Submitted Sound", type: "effect", loopable: false, default_file: "SYNTH_KAHOOT_LOCKED", desc: "Plays when student submits answer" },
+      correct: { label: "Correct Answer Sound", type: "effect", loopable: false, default_file: "SYNTH_CORRECT", desc: "Plays immediately when answer is correct" },
+      wrong: { label: "Wrong Answer Sound", type: "effect", loopable: false, default_file: "SYNTH_KAHOOT_WRONG", desc: "Plays immediately when answer is incorrect" },
+      timeout: { label: "Time Expired Sound", type: "effect", loopable: false, default_file: "SYNTH_TIMEOUT", desc: "Plays when question timer reaches zero" },
+      next_question: { label: "Next Question Sound", type: "effect", loopable: false, default_file: "SYNTH_NEXT", desc: "Plays when transitioning to next question" },
+      leaderboard: { label: "Leaderboard Reveal Music", type: "music", loopable: false, default_file: "SYNTH_LEADERBOARD", desc: "Plays when showing the leaderboard" },
+      winner: { label: "Winner Music", type: "music", loopable: false, default_file: "SYNTH_VICTORY", desc: "Plays when announcing the grand winner" },
+      top3: { label: "Top 3 Reveal Music", type: "music", loopable: false, default_file: "SYNTH_TOP3", desc: "Plays while showing Top 3 winners" },
+      trophy: { label: "Trophy Sound", type: "effect", loopable: false, default_file: "SYNTH_TROPHY", desc: "Plays during trophy animations" },
+      fireworks: { label: "Fireworks Sound", type: "effect", loopable: false, default_file: "SYNTH_FIREWORKS", desc: "Plays during fireworks celebration" },
+      confetti: { label: "Confetti Sound", type: "effect", loopable: false, default_file: "SYNTH_CONFETTI", desc: "Plays during confetti effects" },
+      join: { label: "Participant Joined Sound", type: "effect", loopable: false, default_file: "SYNTH_JOIN", desc: "Plays when a participant joins lobby" },
+      leave: { label: "Participant Left Sound", type: "effect", loopable: false, default_file: "SYNTH_LEAVE", desc: "Plays when a participant leaves lobby" },
+      click: { label: "Button Click Sound", type: "effect", loopable: false, default_file: "SYNTH_CLICK", desc: "Plays on student/host button interactions" },
+      completion: { label: "Quiz Completion Music", type: "music", loopable: false, default_file: "SYNTH_COMPLETION", desc: "Plays after the entire quiz completes" },
+      q_countdown: { label: "Question Countdown Music", type: "music", loopable: true, default_file: "SYNTH_QUESTION_COUNTDOWN", desc: "Played immediately after a question is displayed", fade: true }
+    };
+
+    function getDefaultAudioSettings() {
+      return {
+        global: {
+          master_volume: 1.0,
+          music_volume: 1.0,
+          effects_volume: 1.0,
+          mute_all: false
+        },
+        categories: {
+          lobby: { enabled: true, file_path: "SYNTH_LOBBY", volume: 0.8, loop: true },
+          start: { enabled: true, file_path: "assets/audio/chalo.mp3", volume: 0.8, loop: false },
+          reveal: { enabled: true, file_path: "SYNTH_REVEAL", volume: 0.8, loop: false },
+          background: { enabled: true, file_path: "SYNTH_KAHOOT_QUESTION", volume: 0.8, loop: true },
+          countdown: { enabled: true, file_path: "SYNTH_FINAL_COUNTDOWN", volume: 0.8, loop: false },
+          submit: { enabled: true, file_path: "SYNTH_KAHOOT_LOCKED", volume: 0.8, loop: false },
+          correct: { enabled: true, file_path: "SYNTH_CORRECT", volume: 0.8, loop: false },
+          wrong: { enabled: true, file_path: "SYNTH_KAHOOT_WRONG", volume: 0.8, loop: false },
+          timeout: { enabled: true, file_path: "SYNTH_TIMEOUT", volume: 0.8, loop: false },
+          next_question: { enabled: true, file_path: "SYNTH_NEXT", volume: 0.8, loop: false },
+          leaderboard: { enabled: true, file_path: "SYNTH_LEADERBOARD", volume: 0.8, loop: false },
+          winner: { enabled: true, file_path: "SYNTH_VICTORY", volume: 0.8, loop: false },
+          top3: { enabled: true, file_path: "SYNTH_TOP3", volume: 0.8, loop: false },
+          trophy: { enabled: true, file_path: "SYNTH_TROPHY", volume: 0.8, loop: false },
+          fireworks: { enabled: true, file_path: "SYNTH_FIREWORKS", volume: 0.8, loop: false },
+          confetti: { enabled: true, file_path: "SYNTH_CONFETTI", volume: 0.8, loop: false },
+          join: { enabled: true, file_path: "SYNTH_JOIN", volume: 0.8, loop: false },
+          leave: { enabled: true, file_path: "SYNTH_LEAVE", volume: 0.8, loop: false },
+          click: { enabled: true, file_path: "SYNTH_CLICK", volume: 0.8, loop: false },
+          completion: { enabled: true, file_path: "SYNTH_COMPLETION", volume: 0.8, loop: false },
+          q_countdown: { enabled: true, file_path: "SYNTH_QUESTION_COUNTDOWN", volume: 0.8, loop: true, fade: true }
+        }
+      };
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function basename(path) {
+      if (!path) return '';
+      return path.split('/').pop().split('\\').pop();
+    }
+
+    function loadActiveScopeSettings() {
+      const scopeId = currentAudioScope || '0';
+      return fetch('api.php?action=get_quiz_audio_settings&quiz_id=' + scopeId)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            currentAudioConfig = data.audio_config;
+            audioOverrideEnabled = !!data.audio_override;
+          } else {
+            throw new Error(data.error || 'Unknown error');
+          }
+        });
+    }
+
+    function onAudioScopeChange(val) {
+      currentAudioScope = val;
+      const container = document.getElementById('settings-fields-container');
+      container.innerHTML = `
+        <div class="space-y-6 pb-12 animate-pulse" id="audio-settings-loading">
+          <div class="h-12 bg-slate-200 rounded-xl"></div>
+          <div class="h-32 bg-slate-200 rounded-xl"></div>
+          <div class="h-64 bg-slate-200 rounded-xl"></div>
+        </div>
+        <div id="audio-settings-content" class="hidden space-y-6 pb-12"></div>
+      `;
+      Promise.all([
+        fetch('api.php?action=list_quizzes').then(res => res.json()),
+        fetch('api.php?action=get_audio_files').then(res => res.json()),
+        loadActiveScopeSettings()
+      ]).then(([quizzesData, filesData]) => {
+        const loadingEl = document.getElementById('audio-settings-loading');
+        const contentEl = document.getElementById('audio-settings-content');
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (contentEl) contentEl.classList.remove('hidden');
+        uploadedAudioFiles = filesData.success ? filesData.files : [];
+        renderAudioSettingsPanel(quizzesData);
+      });
+    }
+
+    function toggleAudioOverride(checked) {
+      audioOverrideEnabled = checked;
+      if (checked && (!currentAudioConfig || !currentAudioConfig.categories)) {
+        currentAudioConfig = getDefaultAudioSettings();
+      }
+      fetch('api.php?action=list_quizzes')
+        .then(res => res.json())
+        .then(quizzesData => {
+          renderAudioSettingsPanel(quizzesData);
+        });
+    }
+
+    function updateGlobalVol(key, val) {
+      if (!currentAudioConfig.global) currentAudioConfig.global = {};
+      currentAudioConfig.global[key] = parseFloat(val);
+      const shortKey = key.replace('_volume', '');
+      const label = document.getElementById('vol-lbl-' + shortKey);
+      if (label) label.innerText = Math.round(val * 100) + '%';
+    }
+
+    function toggleGlobalMuteAll() {
+      currentAudioConfig.global.mute_all = !currentAudioConfig.global.mute_all;
+      fetch('api.php?action=list_quizzes')
+        .then(res => res.json())
+        .then(quizzesData => {
+          renderAudioSettingsPanel(quizzesData);
+        });
+    }
+
+    function quickToggleAll(enabled) {
+      for (const k in currentAudioConfig.categories) {
+        currentAudioConfig.categories[k].enabled = enabled;
+      }
+      fetch('api.php?action=list_quizzes')
+        .then(res => res.json())
+        .then(quizzesData => {
+          renderAudioSettingsPanel(quizzesData);
+        });
+    }
+
+    function quickToggleMusic(enabled) {
+      const musicKeys = ['lobby', 'start', 'background', 'countdown', 'leaderboard', 'winner', 'top3', 'completion', 'q_countdown'];
+      musicKeys.forEach(k => {
+        if (currentAudioConfig.categories[k]) {
+          currentAudioConfig.categories[k].enabled = enabled;
+        }
+      });
+      fetch('api.php?action=list_quizzes')
+        .then(res => res.json())
+        .then(quizzesData => {
+          renderAudioSettingsPanel(quizzesData);
+        });
+    }
+
+    function resetAudioSettingsToDefault() {
+      if (!confirm("Are you sure you want to reset all audio mappings and volumes to default?")) return;
+      currentAudioConfig = getDefaultAudioSettings();
+      fetch('api.php?action=list_quizzes')
+        .then(res => res.json())
+        .then(quizzesData => {
+          renderAudioSettingsPanel(quizzesData);
+        });
+    }
+
+    function onLibrarySearchChange() {
+      fetch('api.php?action=list_quizzes')
+        .then(res => res.json())
+        .then(quizzesData => {
+          renderAudioSettingsPanel(quizzesData);
+        });
+    }
+
+    function uploadNewLibraryAudio(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('audio_file', file);
+      
+      const fileLabel = event.target.parentElement;
+      const originalHtml = fileLabel.innerHTML;
+      fileLabel.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Uploading...`;
+      lucide.createIcons();
+
+      fetch('api.php?action=upload_audio', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+          fileLabel.innerHTML = originalHtml;
+          lucide.createIcons();
+          if (data.success) {
+            alert("Audio file uploaded to Library successfully!");
+            fetch('api.php?action=get_audio_files')
+              .then(res => res.json())
+              .then(filesData => {
+                uploadedAudioFiles = filesData.success ? filesData.files : [];
+                return fetch('api.php?action=list_quizzes').then(res => res.json());
+              })
+              .then(quizzesData => {
+                renderAudioSettingsPanel(quizzesData);
+              });
+          } else {
+            alert("Failed to upload: " + (data.error || "Unknown error"));
+          }
+        })
+        .catch(() => {
+          fileLabel.innerHTML = originalHtml;
+          lucide.createIcons();
+          alert("An error occurred during upload.");
+        });
+    }
+
+    function renameLibraryFile(path) {
+      const oldName = basename(path);
+      const newName = prompt("Enter new filename for this audio track (including extension):", oldName);
+      if (!newName || newName === oldName) return;
+
+      fetch('api.php?action=rename_audio', {
+        method: 'POST',
+        body: JSON.stringify({ file_path: path, new_name: newName }),
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert("File renamed successfully!");
+          Promise.all([
+            fetch('api.php?action=list_quizzes').then(res => res.json()),
+            fetch('api.php?action=get_audio_files').then(res => res.json()),
+            loadActiveScopeSettings()
+          ]).then(([quizzesData, filesData]) => {
+            uploadedAudioFiles = filesData.success ? filesData.files : [];
+            renderAudioSettingsPanel(quizzesData);
+          });
+        } else {
+          alert("Rename failed: " + (data.error || "Unknown error"));
+        }
+      });
+    }
+
+    function deleteLibraryFile(path) {
+      if (!confirm("Are you sure you want to delete this custom file from the server? This will also remove it from any mapped categories.")) return;
+
+      fetch('api.php?action=delete_audio', {
+        method: 'POST',
+        body: JSON.stringify({ file_path: path }),
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert("File deleted successfully!");
+          
+          for (const k in currentAudioConfig.categories) {
+            if (currentAudioConfig.categories[k].file_path === path) {
+              currentAudioConfig.categories[k].file_path = AUDIO_CATEGORIES_METADATA[k].default_file;
+            }
+          }
+
+          Promise.all([
+            fetch('api.php?action=list_quizzes').then(res => res.json()),
+            fetch('api.php?action=get_audio_files').then(res => res.json())
+          ]).then(([quizzesData, filesData]) => {
+            uploadedAudioFiles = filesData.success ? filesData.files : [];
+            renderAudioSettingsPanel(quizzesData);
+          });
+        } else {
+          alert("Delete failed: " + (data.error || "Unknown error"));
+        }
+      });
+    }
+
+    function uploadDirectForCategory(key, event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('audio_file', file);
+
+      const btn = event.target.parentElement;
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Uploading...`;
+      lucide.createIcons();
+
+      fetch('api.php?action=upload_audio', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+          btn.innerHTML = originalHtml;
+          lucide.createIcons();
+          if (data.success) {
+            currentAudioConfig.categories[key].file_path = data.file_path;
+            currentAudioConfig.categories[key].enabled = true;
+
+            fetch('api.php?action=get_audio_files')
+              .then(res => res.json())
+              .then(filesData => {
+                uploadedAudioFiles = filesData.success ? filesData.files : [];
+                return fetch('api.php?action=list_quizzes').then(res => res.json());
+              })
+              .then(quizzesData => {
+                renderAudioSettingsPanel(quizzesData);
+                alert("File uploaded and assigned to category successfully!");
+              });
+          } else {
+            alert("Upload failed: " + (data.error || "Unknown error"));
+          }
+        });
+    }
+
+    function clearMappingCustomFile(key) {
+      currentAudioConfig.categories[key].file_path = AUDIO_CATEGORIES_METADATA[key].default_file;
+      fetch('api.php?action=list_quizzes')
+        .then(res => res.json())
+        .then(quizzesData => {
+          renderAudioSettingsPanel(quizzesData);
+        });
+    }
+
+    function updateCardProperty(key, prop, val) {
+      if (!currentAudioConfig.categories[key]) {
+        currentAudioConfig.categories[key] = { enabled: true, file_path: AUDIO_CATEGORIES_METADATA[key].default_file, volume: 0.8, loop: false };
+      }
+      currentAudioConfig.categories[key][prop] = val;
+      if (prop === 'enabled') {
+        fetch('api.php?action=list_quizzes')
+          .then(res => res.json())
+          .then(quizzesData => {
+            renderAudioSettingsPanel(quizzesData);
+          });
+      }
+    }
+
+    function updateCardVolume(key, val) {
+      if (!currentAudioConfig.categories[key]) {
+        currentAudioConfig.categories[key] = { enabled: true, file_path: AUDIO_CATEGORIES_METADATA[key].default_file, volume: 0.8, loop: false };
+      }
+      currentAudioConfig.categories[key].volume = parseFloat(val);
+      const lbl = document.getElementById('vol-lbl-' + key);
+      if (lbl) lbl.innerText = Math.round(val * 100) + '%';
+    }
+
+    function saveScopeAudioSettings() {
+      const payload = {
+        quiz_id: currentAudioScope,
+        audio_override: audioOverrideEnabled ? 1 : 0,
+        audio_config: currentAudioConfig
+      };
+      
+      const btn = event.currentTarget;
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Saving...`;
+      lucide.createIcons();
+
+      fetch('api.php?action=save_audio_settings', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(res => res.json())
+      .then(data => {
+        btn.innerHTML = originalHtml;
+        lucide.createIcons();
+        if (data.success) {
+          alert("Audio Settings Applied & Saved Successfully!");
+          if (window.sound && typeof window.sound.reloadTracks === 'function') {
+            window.sound.reloadTracks();
+          }
+        } else {
+          alert("Error: " + (data.error || 'Unknown error'));
+        }
+      });
+    }
+
+    function playPreviewAudio(path, btnEl) {
+      const isPlaying = btnEl.querySelector('[data-lucide="square"]') || btnEl.querySelector('[data-lucide="pause"]');
+      
+      if (window.previewAudioInstance) {
+        window.previewAudioInstance.pause();
+        window.previewAudioInstance = null;
+      }
+      if (window.previewSynthInterval) {
+        clearInterval(window.previewSynthInterval);
+        window.previewSynthInterval = null;
+      }
+      
+      document.querySelectorAll('[onclick^="playPreviewAudio"]').forEach(btn => {
+        const icon = btn.querySelector('[data-lucide]');
+        if (icon) {
+          icon.setAttribute('data-lucide', 'play');
+        }
+      });
+      lucide.createIcons();
+
+      if (isPlaying) {
+        return;
+      }
+
+      const icon = btnEl.querySelector('[data-lucide]');
+      if (icon) {
+        icon.setAttribute('data-lucide', 'square');
+      }
+      lucide.createIcons();
+
+      if (path.startsWith('SYNTH_')) {
+        let ctx = new (window.AudioContext || window.webkitAudioContext)();
+        let step = 0;
+        const playBeep = () => {
+          let osc = ctx.createOscillator();
+          let gain = ctx.createGain();
+          osc.frequency.value = path.includes('WRONG') || path.includes('TIMEOUT') ? 150 : (path.includes('CORRECT') ? 523.25 : 330);
+          osc.type = path.includes('WRONG') ? 'sawtooth' : 'sine';
+          gain.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.35);
+        };
+        playBeep();
+        window.previewSynthInterval = setInterval(playBeep, 400);
+        window.previewAudioInstance = {
+          pause: () => {
+            if (window.previewSynthInterval) {
+              clearInterval(window.previewSynthInterval);
+              window.previewSynthInterval = null;
+            }
+            ctx.close();
+          }
+        };
+      } else {
+        const audio = new Audio(path);
+        audio.volume = 0.5;
+        audio.play().catch(err => {
+          alert("Playback blocked: click on the page first or ensure file is valid.");
+          if (icon) {
+            icon.setAttribute('data-lucide', 'play');
+            lucide.createIcons();
+          }
+        });
+        audio.onended = () => {
+          if (icon) {
+            icon.setAttribute('data-lucide', 'play');
+            lucide.createIcons();
+          }
+        };
+        window.previewAudioInstance = audio;
+      }
+    }
+
+    function renderAudioSettingsPanel(quizzesData) {
+      const contentEl = document.getElementById('audio-settings-content');
+      if (!contentEl) return;
+
+      let scopeOptions = `<option value="" ${currentAudioScope === '' ? 'selected' : ''}>Global Platform Defaults</option>`;
+      if (Array.isArray(quizzesData)) {
+        quizzesData.forEach(q => {
+          scopeOptions += `<option value="${q.id}" ${currentAudioScope == q.id ? 'selected' : ''}>Event: ${escapeHtml(q.title)} (${q.pin_code})</option>`;
+        });
+      }
+
+      const isQuizScope = currentAudioScope !== '';
+      const overrideCheckboxHtml = isQuizScope ? `
+        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between shadow-sm">
+          <div>
+            <p class="text-xs font-black text-indigo-950">Override Global Audio Settings</p>
+            <p class="text-[10px] text-indigo-700 mt-0.5">Customize sounds specifically for this event instead of using global defaults.</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="audio-override-toggle" class="sr-only peer" ${audioOverrideEnabled ? 'checked' : ''} onchange="toggleAudioOverride(this.checked)">
+            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-650"></div>
+          </label>
+        </div>
+      ` : '';
+
+      const showOverlay = isQuizScope && !audioOverrideEnabled;
+      const controlsDisabledAttr = showOverlay ? 'disabled' : '';
+
+      const globalControlsHtml = `
+        <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4 relative ${showOverlay ? 'opacity-50 pointer-events-none' : ''}">
+          <h4 class="text-xs font-black text-slate-800 uppercase tracking-wider">Global Audio Levels</h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="space-y-1.5">
+              <div class="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
+                <span>Master Volume</span>
+                <span id="vol-lbl-master">${Math.round(currentAudioConfig.global.master_volume * 100)}%</span>
               </div>
-              <button onclick="toggleMute()" id="settings-mute-btn" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-750 font-bold text-xs px-4 py-2.5 rounded-xl border border-indigo-200 flex items-center gap-1.5 cursor-pointer transition-colors">
-                <i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i> Sound Active
+              <input type="range" min="0" max="1" step="0.05" value="${currentAudioConfig.global.master_volume}" 
+                class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-650"
+                oninput="updateGlobalVol('master_volume', this.value)" ${controlsDisabledAttr}>
+            </div>
+            <div class="space-y-1.5">
+              <div class="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
+                <span>Music Volume</span>
+                <span id="vol-lbl-music">${Math.round(currentAudioConfig.global.music_volume * 100)}%</span>
+              </div>
+              <input type="range" min="0" max="1" step="0.05" value="${currentAudioConfig.global.music_volume}" 
+                class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-650"
+                oninput="updateGlobalVol('music_volume', this.value)" ${controlsDisabledAttr}>
+            </div>
+            <div class="space-y-1.5">
+              <div class="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
+                <span>Effects Volume</span>
+                <span id="vol-lbl-effects">${Math.round(currentAudioConfig.global.effects_volume * 100)}%</span>
+              </div>
+              <input type="range" min="0" max="1" step="0.05" value="${currentAudioConfig.global.effects_volume}" 
+                class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-650"
+                oninput="updateGlobalVol('effects_volume', this.value)" ${controlsDisabledAttr}>
+            </div>
+            <div class="flex items-center justify-between sm:justify-end gap-3 sm:pt-2">
+              <span class="text-[10px] font-bold text-slate-500 uppercase">Mute All</span>
+              <button onclick="toggleGlobalMuteAll()" class="px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${currentAudioConfig.global.mute_all ? 'bg-red-50 text-red-650 border-red-200' : 'bg-slate-50 text-slate-650 border-slate-200 hover:bg-slate-100'}" ${controlsDisabledAttr}>
+                <i data-lucide="${currentAudioConfig.global.mute_all ? 'volume-x' : 'volume-2'}" class="w-4 h-4"></i>
+                ${currentAudioConfig.global.mute_all ? 'Muted' : 'Unmuted'}
               </button>
             </div>
+          </div>
+        </div>
+      `;
 
-            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
-              <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <i data-lucide="upload-cloud" class="w-4 h-4 text-indigo-600"></i> Import Custom Audio File
-              </h4>
-              <div class="flex flex-col sm:flex-row gap-3 items-center">
-                <input type="file" id="import-audio-file" accept="audio/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" />
-                <button onclick="handleImportAudio()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-sm whitespace-nowrap">
-                  <i data-lucide="upload" class="w-4 h-4"></i> Upload Song
-                </button>
-              </div>
-              <p class="text-[10px] text-slate-400">Supported: MP3, WAV, WEBM, OGG. Uploaded files appear in dropdowns above.</p>
-            </div>
-
-            <button onclick="saveAudioSettings()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md">
-              <i data-lucide="save" class="w-4 h-4"></i> Save & Apply Audio Settings
+      const quickControlsHtml = `
+        <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4 ${showOverlay ? 'opacity-50 pointer-events-none' : ''}">
+          <h4 class="text-xs font-black text-slate-800 uppercase tracking-wider">Quick Controls</h4>
+          <div class="flex flex-wrap gap-2.5">
+            <button onclick="quickToggleAll(true)" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-755 border border-indigo-200 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-colors" ${controlsDisabledAttr}>
+              <i data-lucide="check-circle" class="w-4 h-4 text-indigo-600"></i> Enable All Sounds
+            </button>
+            <button onclick="quickToggleAll(false)" class="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-colors" ${controlsDisabledAttr}>
+              <i data-lucide="x-circle" class="w-4 h-4 text-slate-500"></i> Disable All Sounds
+            </button>
+            <button onclick="quickToggleMusic(true)" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-755 border border-indigo-200 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-colors" ${controlsDisabledAttr}>
+              <i data-lucide="play" class="w-4 h-4 text-indigo-600"></i> Enable All Music
+            </button>
+            <button onclick="quickToggleMusic(false)" class="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-colors" ${controlsDisabledAttr}>
+              <i data-lucide="square" class="w-4 h-4 text-slate-500"></i> Disable All Music
+            </button>
+            <button onclick="resetAudioSettingsToDefault()" class="bg-red-50 hover:bg-red-100 text-red-650 border border-red-200 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-colors" ${controlsDisabledAttr}>
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset Audio Settings
             </button>
           </div>
+        </div>
+      `;
+
+      const searchVal = document.getElementById('library-search-input')?.value || '';
+      const filteredFiles = uploadedAudioFiles.filter(f => f.name.toLowerCase().includes(searchVal.toLowerCase()));
+
+      let libraryListHtml = `<div class="text-center text-slate-400 text-xs py-6">No custom audio files uploaded yet.</div>`;
+      if (filteredFiles.length > 0) {
+        libraryListHtml = `
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 overflow-y-auto max-h-[220px] pr-2">
+            ${filteredFiles.map(f => `
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-2 shadow-sm">
+                <div class="min-w-0 flex-grow">
+                  <p class="text-xs font-bold text-slate-800 truncate" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</p>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <button onclick="playPreviewAudio('${f.path}', this)" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-650 p-2 rounded-lg transition-colors cursor-pointer" title="Preview Play">
+                    <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button onclick="renameLibraryFile('${f.path}')" class="bg-slate-100 hover:bg-slate-200 text-slate-650 p-2 rounded-lg transition-colors cursor-pointer" title="Rename file">
+                    <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button onclick="deleteLibraryFile('${f.path}')" class="bg-red-50 hover:bg-red-100 text-red-600 p-2 rounded-lg transition-colors cursor-pointer" title="Delete file">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
         `;
-        lucide.createIcons();
-        loadAudioDropdowns();
+      }
+
+      const audioLibraryHtml = `
+        <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div>
+              <h4 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="folder-heart" class="w-4 h-4 text-indigo-600"></i> Central Audio Library
+              </h4>
+              <p class="text-[10px] text-slate-400 mt-0.5">Upload, search, preview, and rename custom MP3, WAV, or OGG files.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="text" id="library-search-input" placeholder="Search library..." value="${escapeHtml(searchVal)}"
+                oninput="onLibrarySearchChange()" class="bg-slate-50 border border-slate-200 focus:outline-none focus:border-indigo-500 rounded-xl px-3 py-1.5 text-xs text-slate-705 w-44">
+              <label class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs cursor-pointer flex items-center gap-1.5 shadow-sm transition-colors">
+                <i data-lucide="upload" class="w-3.5 h-3.5"></i> Upload New
+                <input type="file" accept="audio/*" class="hidden" onchange="uploadNewLibraryAudio(event)">
+              </label>
+            </div>
+          </div>
+          ${libraryListHtml}
+        </div>
+      `;
+
+      const categoriesKeys = Object.keys(AUDIO_CATEGORIES_METADATA);
+      const gridCardsHtml = categoriesKeys.map(key => {
+        const meta = AUDIO_CATEGORIES_METADATA[key];
+        const cardConfig = currentAudioConfig.categories[key] || { enabled: true, file_path: meta.default_file, volume: 0.8, loop: false };
+
+        const isCardEnabled = !!cardConfig.enabled;
+        const currentFile = cardConfig.file_path;
+        
+        const loopToggleHtml = meta.loopable ? `
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[9px] font-bold text-slate-500 uppercase">Loop Music</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" class="sr-only peer" ${cardConfig.loop ? 'checked' : ''} 
+                onchange="updateCardProperty('${key}', 'loop', this.checked)" ${!isCardEnabled || showOverlay ? 'disabled' : ''}>
+              <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-650"></div>
+            </label>
+          </div>
+        ` : '';
+
+        let fileOptionsHtml = `<option value="${meta.default_file}">Default Built-in Synth</option>`;
+        uploadedAudioFiles.forEach(f => {
+          fileOptionsHtml += `<option value="${f.path}" ${currentFile === f.path ? 'selected' : ''}>${escapeHtml(f.name)}</option>`;
+        });
+
+        const isCustomFile = currentFile.startsWith('assets/audio/');
+
+        return `
+          <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3 relative flex flex-col justify-between ${!isCardEnabled ? 'bg-slate-50/50' : ''}">
+            <div class="flex justify-between items-start gap-2">
+              <div class="min-w-0">
+                <h5 class="text-xs font-black text-slate-900 truncate" title="${meta.label}">${meta.label}</h5>
+                <p class="text-[9px] text-slate-400 mt-0.5 line-clamp-1" title="${meta.desc}">${meta.desc}</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                <input type="checkbox" class="sr-only peer" ${isCardEnabled ? 'checked' : ''} 
+                  onchange="updateCardProperty('${key}', 'enabled', this.checked)" ${showOverlay ? 'disabled' : ''}>
+                <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+              </label>
+            </div>
+
+            <div class="space-y-2.5 ${!isCardEnabled || showOverlay ? 'opacity-40 pointer-events-none' : ''}">
+              <div class="space-y-1">
+                <label class="block text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">Audio Source</label>
+                <select onchange="updateCardProperty('${key}', 'file_path', this.value)"
+                  class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded-lg p-2 text-slate-800 text-[11px] font-bold cursor-pointer">
+                  ${fileOptionsHtml}
+                </select>
+              </div>
+
+              <div class="flex items-center gap-1.5">
+                <button onclick="playPreviewAudio('${currentFile}', this)" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors flex-grow">
+                  <i data-lucide="play" class="w-3.5 h-3.5"></i> Preview
+                </button>
+                <label class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors flex-grow text-center">
+                  <i data-lucide="replace" class="w-3.5 h-3.5"></i> ${isCustomFile ? 'Replace' : 'Upload'}
+                  <input type="file" accept="audio/*" class="hidden" onchange="uploadDirectForCategory('${key}', event)">
+                </label>
+                ${isCustomFile ? `
+                  <button onclick="clearMappingCustomFile('${key}')" class="bg-red-50 hover:bg-red-100 text-red-650 p-1.5 rounded-lg transition-colors cursor-pointer" title="Revert to Default">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                  </button>
+                ` : ''}
+              </div>
+
+              <div class="space-y-1">
+                <div class="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
+                  <span>Volume</span>
+                  <span id="vol-lbl-${key}">${Math.round(cardConfig.volume * 100)}%</span>
+                </div>
+                <input type="range" min="0" max="1" step="0.05" value="${cardConfig.volume}" 
+                  class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-650"
+                  oninput="updateCardVolume('${key}', this.value)">
+              </div>
+
+              ${loopToggleHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const gridHtml = `
+        <div class="bg-slate-100/50 border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+          <h4 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="grid" class="w-4 h-4 text-indigo-600"></i> Event Sound Mappings (${categoriesKeys.length} Categories)
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${gridCardsHtml}
+          </div>
+        </div>
+      `;
+
+      const saveBtnHtml = `
+        <button onclick="saveScopeAudioSettings()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md">
+          <i data-lucide="save" class="w-4 h-4"></i> Save & Apply Current Audio Configuration
+        </button>
+      `;
+
+      contentEl.innerHTML = `
+        <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p class="text-xs font-black text-slate-800">Choose Scope</p>
+            <p class="text-[10px] text-slate-405 mt-0.5">Configure global default audio settings or override settings for a specific event.</p>
+          </div>
+          <select id="audio-settings-scope" onchange="onAudioScopeChange(this.value)"
+            class="bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-xs font-extrabold cursor-pointer w-full sm:w-80 shadow-sm">
+            ${scopeOptions}
+          </select>
+        </div>
+        ${overrideCheckboxHtml}
+        
+        <div class="relative space-y-6">
+          ${globalControlsHtml}
+          ${quickControlsHtml}
+          ${audioLibraryHtml}
+          ${gridHtml}
+          ${saveBtnHtml}
+        </div>
+      `;
+
+      lucide.createIcons();
+    }
+
+    function renderSettingsFields(category) {
+      document.getElementById('settings-current-category-title').innerText = category;
+      const container = document.getElementById('settings-fields-container');
+
+      if (category === 'Audio & Music') {
+        container.innerHTML = `
+          <div class="space-y-6 pb-12 animate-pulse" id="audio-settings-loading">
+            <div class="h-12 bg-slate-200 rounded-xl"></div>
+            <div class="h-32 bg-slate-200 rounded-xl"></div>
+            <div class="h-64 bg-slate-200 rounded-xl"></div>
+          </div>
+          <div id="audio-settings-content" class="hidden space-y-6 pb-12"></div>
+        `;
+        
+        Promise.all([
+          fetch('api.php?action=list_quizzes').then(res => res.json()),
+          fetch('api.php?action=get_audio_files').then(res => res.json()),
+          loadActiveScopeSettings()
+        ]).then(([quizzesData, filesData]) => {
+          const loadingEl = document.getElementById('audio-settings-loading');
+          const contentEl = document.getElementById('audio-settings-content');
+          if (loadingEl) loadingEl.classList.add('hidden');
+          if (contentEl) contentEl.classList.remove('hidden');
+
+          uploadedAudioFiles = filesData.success ? filesData.files : [];
+          renderAudioSettingsPanel(quizzesData);
+        }).catch(err => {
+          console.error(err);
+          container.innerHTML = `<div class="p-6 text-red-500 font-bold">Failed to load audio settings: ${err.message}</div>`;
+        });
         return;
       }
 
@@ -791,43 +1461,6 @@ session_start();
       }
     }
 
-    // Audio-specific save (localStorage + sound engine)
-    function saveAudioSettings() {
-      const start  = document.getElementById('settings-start-music')?.value;
-      const question = document.getElementById('settings-question-music')?.value;
-      const locked = document.getElementById('settings-locked-music')?.value;
-      const wrong  = document.getElementById('settings-wrong-music')?.value;
-      if (start)    localStorage.setItem('settings_start_music',    start);
-      if (question) localStorage.setItem('settings_question_music', question);
-      if (locked)   localStorage.setItem('settings_locked_music',   locked);
-      if (wrong)    localStorage.setItem('settings_wrong_music',    wrong);
-      sound.reloadTracks();
-      alert('Audio settings saved and applied successfully!');
-    }
-
-    function handleImportAudio() {
-      const fileInput = document.getElementById('import-audio-file');
-      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-        alert('Please select an audio file first.');
-        return;
-      }
-      const file = fileInput.files[0];
-      const formData = new FormData();
-      formData.append('audio_file', file);
-      fetch('api.php?action=upload_audio', { method: 'POST', body: formData })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            alert('Audio file imported successfully!');
-            fileInput.value = '';
-            loadAudioDropdowns();
-          } else {
-            alert('Failed to import audio: ' + (data.error || 'Unknown error'));
-          }
-        })
-        .catch(() => alert('An error occurred while uploading.'));
-    }
-
     function saveGlobalSettings() {
       const payload = {};
       for (const cat in currentSettingsData) {
@@ -870,41 +1503,7 @@ session_start();
         });
     }
 
-    function loadLiveScoringSessions() {
-      fetch('api.php?action=get_live_sessions')
-        .then(res => res.json())
-        .then(data => {
-          const container = document.getElementById('scoring-sessions-list');
-          container.innerHTML = '';
-          const activeSessions = data.filter(s => s.status === 'LOBBY' || s.status === 'ACTIVE_QUESTION');
-          if (activeSessions.length === 0) {
-            container.innerHTML = '<p class="text-sm text-slate-500 col-span-2 italic">No active live sessions found right now.</p>';
-            return;
-          }
-          activeSessions.forEach(s => {
-            container.innerHTML += `
-              <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow relative">
-                <div class="flex justify-between items-start mb-2">
-                  <h3 class="font-bold text-slate-900">${s.quiz_title}</h3>
-                  <span class="text-[9px] bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-0.5 rounded font-bold uppercase">${s.status}</span>
-                </div>
-                <div class="flex gap-4 text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4">
-                  <span>PIN: <span class="text-indigo-650 font-mono">${s.pin_code}</span></span>
-                </div>
-                <div class="flex gap-2 mt-4 flex-wrap">
-                  <a href="host_arena.php?pin=${s.pin_code}" target="_blank" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm">
-                    <i data-lucide="presentation" class="w-3.5 h-3.5"></i> Open Presenter Panel
-                  </a>
-                  <a href="live_scoring.php?pin=${s.pin_code}" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm">
-                    <i data-lucide="activity" class="w-3.5 h-3.5"></i> Live Scoring
-                  </a>
-                </div>
-              </div>
-            `;
-          });
-          lucide.createIcons();
-        });
-    }
+
 
     function loadHistorySessions() {
       fetch('api.php?action=get_live_sessions')
@@ -1510,13 +2109,20 @@ session_start();
 
     function handleAdminLogin(e) {
       e.preventDefault();
-      const u = document.getElementById('admin-user').value;
+      const u = document.getElementById('admin-user').value.trim();
       const p = document.getElementById('admin-pass').value;
       fetch('api.php?action=admin_login', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({username: u, password: p})
-      }).then(res=>res.json()).then(data=>{
+      })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return res.json();
+      })
+      .then(data => {
         if (data.success) {
           isAdmin = true;
           updateAdminUI();
@@ -1525,6 +2131,10 @@ session_start();
         } else {
           alert(data.error || 'Invalid admin credentials.');
         }
+      })
+      .catch(err => {
+        console.error('Error during admin login:', err);
+        alert('An error occurred during login. Please verify your connection and try again.');
       });
     }
 

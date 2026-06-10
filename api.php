@@ -8,6 +8,63 @@ require_once __DIR__ . '/gemini_ai.php';
 
 // Auto login removed, admin authentication is required.
 
+function getDefaultAudioSettings() {
+    return [
+        'global' => [
+            'master_volume' => 1.0,
+            'music_volume' => 1.0,
+            'effects_volume' => 1.0,
+            'mute_all' => false
+        ],
+        'categories' => [
+            'lobby' => ['enabled' => true, 'file_path' => 'SYNTH_LOBBY', 'volume' => 0.8, 'loop' => true],
+            'start' => ['enabled' => true, 'file_path' => 'assets/audio/chalo.mp3', 'volume' => 0.8, 'loop' => false],
+            'reveal' => ['enabled' => true, 'file_path' => 'SYNTH_REVEAL', 'volume' => 0.8, 'loop' => false],
+            'background' => ['enabled' => true, 'file_path' => 'SYNTH_KAHOOT_QUESTION', 'volume' => 0.8, 'loop' => true],
+            'countdown' => ['enabled' => true, 'file_path' => 'SYNTH_FINAL_COUNTDOWN', 'volume' => 0.8, 'loop' => false],
+            'submit' => ['enabled' => true, 'file_path' => 'SYNTH_KAHOOT_LOCKED', 'volume' => 0.8, 'loop' => false],
+            'correct' => ['enabled' => true, 'file_path' => 'SYNTH_CORRECT', 'volume' => 0.8, 'loop' => false],
+            'wrong' => ['enabled' => true, 'file_path' => 'SYNTH_KAHOOT_WRONG', 'volume' => 0.8, 'loop' => false],
+            'timeout' => ['enabled' => true, 'file_path' => 'SYNTH_TIMEOUT', 'volume' => 0.8, 'loop' => false],
+            'next_question' => ['enabled' => true, 'file_path' => 'SYNTH_NEXT', 'volume' => 0.8, 'loop' => false],
+            'leaderboard' => ['enabled' => true, 'file_path' => 'SYNTH_LEADERBOARD', 'volume' => 0.8, 'loop' => false],
+            'winner' => ['enabled' => true, 'file_path' => 'SYNTH_VICTORY', 'volume' => 0.8, 'loop' => false],
+            'top3' => ['enabled' => true, 'file_path' => 'SYNTH_TOP3', 'volume' => 0.8, 'loop' => false],
+            'trophy' => ['enabled' => true, 'file_path' => 'SYNTH_TROPHY', 'volume' => 0.8, 'loop' => false],
+            'fireworks' => ['enabled' => true, 'file_path' => 'SYNTH_FIREWORKS', 'volume' => 0.8, 'loop' => false],
+            'confetti' => ['enabled' => true, 'file_path' => 'SYNTH_CONFETTI', 'volume' => 0.8, 'loop' => false],
+            'join' => ['enabled' => true, 'file_path' => 'SYNTH_JOIN', 'volume' => 0.8, 'loop' => false],
+            'leave' => ['enabled' => true, 'file_path' => 'SYNTH_LEAVE', 'volume' => 0.8, 'loop' => false],
+            'click' => ['enabled' => true, 'file_path' => 'SYNTH_CLICK', 'volume' => 0.8, 'loop' => false],
+            'completion' => ['enabled' => true, 'file_path' => 'SYNTH_COMPLETION', 'volume' => 0.8, 'loop' => false],
+            'q_countdown' => ['enabled' => true, 'file_path' => 'SYNTH_QUESTION_COUNTDOWN', 'volume' => 0.8, 'loop' => true, 'fade' => true]
+        ]
+    ];
+}
+
+function getResolvedAudioSettings($pdo, $quizId = null) {
+    $default = getDefaultAudioSettings();
+    $stmt = $pdo->prepare("SELECT setting_value FROM global_settings WHERE setting_key = 'global_audio_settings'");
+    $stmt->execute();
+    $globalVal = $stmt->fetchColumn();
+    $globalSettings = $globalVal ? json_decode($globalVal, true) : null;
+    if ($globalSettings) {
+        $default = array_replace_recursive($default, $globalSettings);
+    }
+    if ($quizId) {
+        $stmtQuiz = $pdo->prepare("SELECT audio_override, audio_settings FROM quizzes WHERE id = ?");
+        $stmtQuiz->execute([$quizId]);
+        $quizInfo = $stmtQuiz->fetch();
+        if ($quizInfo && isset($quizInfo['audio_override']) && $quizInfo['audio_override'] && $quizInfo['audio_settings']) {
+            $quizSettings = json_decode($quizInfo['audio_settings'], true);
+            if ($quizSettings) {
+                $default = array_replace_recursive($default, $quizSettings);
+            }
+        }
+    }
+    return $default;
+}
+
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $response = ['error' => 'Invalid action'];
 
@@ -76,10 +133,8 @@ try {
                 $_SESSION['role'] = 'ADMIN';
                 $response = ['success' => true];
             } else {
-                // Fallback for bootstrap
-                $stmtCount = $pdo->query("SELECT COUNT(*) FROM admins");
-                $adminCount = $stmtCount->fetchColumn();
-                if ($adminCount == 0 && $username === 'admin' && $password === 'admin') {
+                // Fallback for bootstrap / default admin login
+                if ($username === 'admin' && $password === 'admin') {
                     $_SESSION['user_id'] = 'admin_default';
                     $_SESSION['username'] = 'Admin';
                     $_SESSION['role'] = 'ADMIN';
@@ -335,6 +390,12 @@ try {
             $stmtP->execute([$session['id']]);
             $players = $stmtP->fetchAll(PDO::FETCH_COLUMN);
 
+            // Get all questions
+            $stmtQs = $pdo->prepare("SELECT * FROM questions WHERE quiz_id = ? ORDER BY q_order ASC");
+            $stmtQs->execute([$session['quiz_id']]);
+            $questions = $stmtQs->fetchAll();
+            $totalQs = count($questions);
+
             // Active Question Check
             $currentQuestion = null;
             $timeLeft = 0;
@@ -342,62 +403,93 @@ try {
             $studentQuestionIndex = intval($session['current_question_index']);
             $alreadyAnswered = false;
 
-            // Get all questions
-            $stmtQs = $pdo->prepare("SELECT * FROM questions WHERE quiz_id = ? ORDER BY q_order ASC");
-            $stmtQs->execute([$session['quiz_id']]);
-            $questions = $stmtQs->fetchAll();
-            $totalQs = count($questions);
-
             if ($session['status'] === 'ACTIVE_QUESTION') {
                 $qIdx = intval($session['current_question_index']);
-                
-                if ($qIdx >= $totalQs) {
-                    $studentStatus = 'FINISHED';
+
+                if ($role === 'STUDENT' && !empty($username)) {
+                    $stmtPart = $pdo->prepare("SELECT * FROM session_participants WHERE session_id = ? AND username = ?");
+                    $stmtPart->execute([$session['id'], $username]);
+                    $participant = $stmtPart->fetch();
+
+                    if (!$participant) {
+                        $stmtReg = $pdo->prepare("INSERT OR IGNORE INTO session_participants (session_id, username, score, streak, current_question_index, question_started_at) VALUES (?, ?, 0, 0, 0, 0)");
+                        $stmtReg->execute([$session['id'], $username]);
+                        $stmtPart->execute([$session['id'], $username]);
+                        $participant = $stmtPart->fetch();
+                    }
+
+                    $qIdx = intval($participant['current_question_index']);
+                    $studentQuestionIndex = $qIdx;
+
+                    if ($qIdx >= $totalQs) {
+                        $studentStatus = 'FINISHED';
+                    } else {
+                        $q = $questions[$qIdx];
+                        $timeLimit = $session['question_time_limit'] ? intval($session['question_time_limit']) : intval($q['time_limit']);
+
+                        // Initialize start time if not set
+                        if (intval($participant['question_started_at']) <= 0) {
+                            $startedAt = time();
+                            $stmtUpP = $pdo->prepare("UPDATE session_participants SET question_started_at = ? WHERE id = ?");
+                            $stmtUpP->execute([$startedAt, $participant['id']]);
+                            $participant['question_started_at'] = $startedAt;
+                        }
+
+                        // Calculate time left
+                        $elapsed = time() - intval($participant['question_started_at']);
+                        $timeLeft = max(0, $timeLimit - $elapsed);
+
+                        // If timed out, process timeout and auto-advance to next question
+                        if ($timeLeft <= 0) {
+                            // Save timeout response
+                            $stmtInsR = $pdo->prepare("INSERT OR IGNORE INTO session_responses (session_id, question_id, participant_id, points_earned, response_time_ms, is_correct) VALUES (?, ?, ?, 0, ?, 0)");
+                            $stmtInsR->execute([$session['id'], $q['id'], $participant['id'], $timeLimit * 1000]);
+
+                            $qIdx = $qIdx + 1;
+                            $studentQuestionIndex = $qIdx;
+
+                            if ($qIdx >= $totalQs) {
+                                $studentStatus = 'FINISHED';
+                                $stmtUpP = $pdo->prepare("UPDATE session_participants SET current_question_index = ?, question_started_at = 0 WHERE id = ?");
+                                $stmtUpP->execute([$qIdx, $participant['id']]);
+                            } else {
+                                // Load next question
+                                $q = $questions[$qIdx];
+                                $timeLimit = $session['question_time_limit'] ? intval($session['question_time_limit']) : intval($q['time_limit']);
+                                $startedAt = time();
+
+                                $stmtUpP = $pdo->prepare("UPDATE session_participants SET current_question_index = ?, question_started_at = ? WHERE id = ?");
+                                $stmtUpP->execute([$qIdx, $startedAt, $participant['id']]);
+                                
+                                $timeLeft = $timeLimit;
+                                $alreadyAnswered = false;
+                            }
+                        } else {
+                            // Check if response already exists
+                            $stmtR = $pdo->prepare("SELECT id FROM session_responses WHERE session_id = ? AND question_id = ? AND participant_id = ?");
+                            $stmtR->execute([$session['id'], $q['id'], $participant['id']]);
+                            $hasResp = $stmtR->fetch();
+                            if ($hasResp) {
+                                $alreadyAnswered = true;
+                            }
+                        }
+                    }
                 } else {
+                    if ($qIdx >= $totalQs) {
+                        $studentStatus = 'FINISHED';
+                    }
+                }
+
+                // If not finished, load active question details
+                if ($studentStatus === 'ACTIVE_QUESTION' && $qIdx < $totalQs) {
                     $q = $questions[$qIdx];
                     $timeLimit = $session['question_time_limit'] ? intval($session['question_time_limit']) : intval($q['time_limit']);
 
-                    // Calculate time left
-                    if (intval($session['is_paused'] ?? 0) === 1) {
-                        $timeLeft = intval($session['paused_time_left'] ?? 0);
-                    } else {
+                    if ($role !== 'STUDENT' || empty($username)) {
                         $elapsed = time() - intval($session['active_question_start']);
                         $timeLeft = max(0, $timeLimit - $elapsed);
                     }
 
-                    // For students, check participant and response state
-                    if ($role === 'STUDENT' && !empty($username)) {
-                        $stmtPart = $pdo->prepare("SELECT * FROM session_participants WHERE session_id = ? AND username = ?");
-                        $stmtPart->execute([$session['id'], $username]);
-                        $participant = $stmtPart->fetch();
-
-                        if (!$participant) {
-                            $stmtReg = $pdo->prepare("INSERT OR IGNORE INTO session_participants (session_id, username, score, streak, current_question_index, question_started_at) VALUES (?, ?, 0, 0, 0, 0)");
-                            $stmtReg->execute([$session['id'], $username]);
-                            $stmtPart->execute([$session['id'], $username]);
-                            $participant = $stmtPart->fetch();
-                        }
-
-                        // Check if response already exists
-                        $stmtR = $pdo->prepare("SELECT id FROM session_responses WHERE session_id = ? AND question_id = ? AND participant_id = ?");
-                        $stmtR->execute([$session['id'], $q['id'], $participant['id']]);
-                        $hasResp = $stmtR->fetch();
-
-                        if ($hasResp) {
-                            $alreadyAnswered = true;
-                        } else if ($timeLeft <= 0) {
-                            // Expired! Auto submit wrong response and advance participant internal question count
-                            $stmtInsR = $pdo->prepare("INSERT OR IGNORE INTO session_responses (session_id, question_id, participant_id, points_earned, response_time_ms, is_correct) VALUES (?, ?, ?, 0, ?, 0)");
-                            $stmtInsR->execute([$session['id'], $q['id'], $participant['id'], $timeLimit * 1000]);
-                            
-                            $stmtUpP = $pdo->prepare("UPDATE session_participants SET current_question_index = ? WHERE id = ?");
-                            $stmtUpP->execute([$qIdx + 1, $participant['id']]);
-                            
-                            $alreadyAnswered = true;
-                        }
-                    }
-
-                    // Set active question details
                     $stmtO = $pdo->prepare("SELECT id, text, o_order FROM options WHERE question_id = ? ORDER BY o_order ASC");
                     $stmtO->execute([$q['id']]);
                     $opts = $stmtO->fetchAll();
@@ -424,7 +516,8 @@ try {
                 'is_paused' => intval($session['is_paused'] ?? 0),
                 'already_answered' => $alreadyAnswered,
                 'music_enabled' => intval($session['music_enabled']),
-                'active_question_start' => intval($session['active_question_start'])
+                'active_question_start' => intval($session['active_question_start']),
+                'audio_config' => getResolvedAudioSettings($pdo, $session['quiz_id'])
             ];
             break;
 
@@ -528,7 +621,7 @@ try {
 
             if ($isCorrect) {
                 $streak = intval($participant['streak']) + 1;
-                $scoreEarned = 1;
+                $scoreEarned = intval($question['points'] ?? 100);
                 $correctRank = 0; // Keeping variable for answer_rank compatibility
             } else {
                 $streak = 0;
@@ -554,6 +647,22 @@ try {
                 'streak' => $streak,
                 'answer_rank' => $isCorrect ? ($correctRank + 1) : 0
             ];
+            break;
+
+        case 'end_session':
+            $pin = $_POST['pin_code'] ?? '';
+            $stmtS = $pdo->prepare("SELECT * FROM quiz_sessions WHERE pin_code = ?");
+            $stmtS->execute([$pin]);
+            $session = $stmtS->fetch();
+
+            if (!$session) {
+                $response = ['error' => 'Session not found'];
+                break;
+            }
+
+            $stmtUpdate = $pdo->prepare("UPDATE quiz_sessions SET status = 'FINISHED', is_paused = 0, paused_time_left = NULL WHERE id = ?");
+            $stmtUpdate->execute([$session['id']]);
+            $response = ['success' => true];
             break;
 
         case 'get_telemetry':
@@ -585,20 +694,38 @@ try {
             $totalAnswers = intval($stmtTotalAns->fetchColumn());
 
             // Fetch active participant feed with progress index and correct counts
-            $stmtFeed = $pdo->prepare("SELECT p.username, p.score, p.streak, p.current_question_index,
-                (SELECT COUNT(*) FROM session_responses r2 WHERE r2.session_id = p.session_id AND r2.participant_id = p.id AND r2.is_correct = 1) as correct_count
-                FROM session_participants p WHERE p.session_id = ? ORDER BY p.score DESC");
+            $stmtFeed = $pdo->prepare("SELECT p.id, p.username, p.score, p.streak, p.current_question_index FROM session_participants p WHERE p.session_id = ? ORDER BY p.score DESC");
             $stmtFeed->execute([$session['id']]);
             $feed = $stmtFeed->fetchAll();
 
             $telemetry = [];
             foreach ($feed as $row) {
+                // Count correct
+                $stmtC = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND participant_id = ? AND is_correct = 1");
+                $stmtC->execute([$session['id'], $row['id']]);
+                $correctCount = intval($stmtC->fetchColumn());
+
+                // Count wrong
+                $stmtW = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND participant_id = ? AND is_correct = 0 AND (option_id IS NOT NULL OR fill_in_text IS NOT NULL OR coding_code IS NOT NULL)");
+                $stmtW->execute([$session['id'], $row['id']]);
+                $wrongCount = intval($stmtW->fetchColumn());
+
+                // Count skipped / timeout
+                $stmtS = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND participant_id = ? AND is_correct = 0 AND option_id IS NULL AND fill_in_text IS NULL AND coding_code IS NULL");
+                $stmtS->execute([$session['id'], $row['id']]);
+                $skippedCount = intval($stmtS->fetchColumn());
+
+                $remaining = max(0, $totalQuestionsCount - intval($row['current_question_index']));
+
                 $telemetry[] = [
                     'name' => $row['username'],
                     'score' => intval($row['score']),
                     'streak' => intval($row['streak']),
-                    'correct_count' => intval($row['correct_count']),
-                    'current_question_index' => intval($row['current_question_index'])
+                    'current_question_index' => intval($row['current_question_index']),
+                    'correct_count' => $correctCount,
+                    'wrong_count' => $wrongCount,
+                    'skipped_count' => $skippedCount,
+                    'remaining' => $remaining
                 ];
             }
 
@@ -1010,6 +1137,180 @@ try {
             break;
 
 
+
+        case 'get_audio_files':
+            $dir = __DIR__ . '/assets/audio/';
+            if (!is_dir($dir)) {
+                mkdir($dir, 0777, true);
+            }
+            $files = array_diff(scandir($dir), ['.', '..']);
+            $audioFiles = [];
+            foreach ($files as $file) {
+                $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+                if (in_array($ext, ['mp3', 'wav', 'ogg'])) {
+                    $audioFiles[] = [
+                        'name' => $file,
+                        'path' => 'assets/audio/' . $file,
+                        'url' => 'assets/audio/' . rawurlencode($file)
+                    ];
+                }
+            }
+            $response = ['success' => true, 'files' => $audioFiles];
+            break;
+
+        case 'upload_audio':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            if (!isset($_FILES['audio_file']) || $_FILES['audio_file']['error'] !== UPLOAD_ERR_OK) {
+                $response = ['error' => 'Upload failed'];
+                break;
+            }
+            $file = $_FILES['audio_file'];
+            $maxSize = 20 * 1024 * 1024; // 20 MB
+            if ($file['size'] > $maxSize) {
+                $response = ['error' => 'File too large (max 20MB)'];
+                break;
+            }
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, ['mp3', 'wav', 'ogg'])) {
+                $response = ['error' => 'Invalid format (only mp3, wav, ogg allowed)'];
+                break;
+            }
+            $safeName = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $file['name']);
+            $dest = __DIR__ . '/assets/audio/' . $safeName;
+            
+            // ensure unique name
+            $counter = 1;
+            while (file_exists($dest)) {
+                $safeName = pathinfo($safeName, PATHINFO_FILENAME) . '_' . $counter . '.' . $ext;
+                $dest = __DIR__ . '/assets/audio/' . $safeName;
+                $counter++;
+            }
+
+            if (move_uploaded_file($file['tmp_name'], $dest)) {
+                $response = ['success' => true, 'file' => [
+                    'name' => $safeName,
+                    'path' => 'assets/audio/' . $safeName,
+                    'url' => 'assets/audio/' . rawurlencode($safeName)
+                ], 'file_path' => 'assets/audio/' . $safeName, 'file_name' => $safeName];
+            } else {
+                $response = ['error' => 'Could not save file'];
+            }
+            break;
+
+        case 'rename_audio':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $oldPath = $_POST['old_path'] ?? '';
+            $newName = $_POST['new_name'] ?? '';
+            if (!$oldPath || !$newName) {
+                $response = ['error' => 'Missing parameters'];
+                break;
+            }
+            $oldFile = __DIR__ . '/' . ltrim($oldPath, '/');
+            if (strpos(realpath($oldFile), realpath(__DIR__ . '/assets/audio/')) !== 0) {
+                $response = ['error' => 'Invalid path'];
+                break;
+            }
+            $ext = strtolower(pathinfo($newName, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['mp3', 'wav', 'ogg'])) {
+                $response = ['error' => 'Invalid extension'];
+                break;
+            }
+            $safeName = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $newName);
+            $newFile = __DIR__ . '/assets/audio/' . $safeName;
+            if (file_exists($newFile)) {
+                $response = ['error' => 'File already exists'];
+                break;
+            }
+            if (rename($oldFile, $newFile)) {
+                $response = ['success' => true, 'file' => [
+                    'name' => $safeName,
+                    'path' => 'assets/audio/' . $safeName,
+                    'url' => 'assets/audio/' . rawurlencode($safeName)
+                ]];
+            } else {
+                $response = ['error' => 'Rename failed'];
+            }
+            break;
+
+        case 'delete_audio':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $path = $_POST['path'] ?? '';
+            if (!$path) {
+                $response = ['error' => 'Missing parameters'];
+                break;
+            }
+            $file = __DIR__ . '/' . ltrim($path, '/');
+            if (strpos(realpath($file), realpath(__DIR__ . '/assets/audio/')) !== 0 || !file_exists($file)) {
+                $response = ['error' => 'Invalid path or file not found'];
+                break;
+            }
+            if (unlink($file)) {
+                $response = ['success' => true];
+            } else {
+                $response = ['error' => 'Delete failed'];
+            }
+            break;
+
+        case 'save_audio_settings':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $data = json_decode(file_get_contents('php://input'), true);
+            $quizId = $data['quiz_id'] ?? null;
+            $audioSettings = json_encode($data['settings'] ?? []);
+            
+            if ($quizId) {
+                $override = isset($data['audio_override']) ? intval($data['audio_override']) : 1;
+                $stmt = $pdo->prepare("UPDATE quizzes SET audio_override = ?, audio_settings = ? WHERE id = ?");
+                $stmt->execute([$override, $audioSettings, $quizId]);
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO global_settings (setting_key, setting_value, category) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value");
+                $stmt->execute(['global_audio_settings', $audioSettings, 'audio']);
+            }
+            $response = ['success' => true];
+            break;
+
+        case 'get_quiz_audio_settings':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $quizId = $_GET['quiz_id'] ?? 0;
+            if ($quizId == 0) {
+                $stmt = $pdo->prepare("SELECT setting_value FROM global_settings WHERE setting_key = 'global_audio_settings'");
+                $stmt->execute();
+                $globalVal = $stmt->fetchColumn();
+                $response = [
+                    'success' => true,
+                    'audio_override' => 0,
+                    'audio_config' => $globalVal ? json_decode($globalVal, true) : getDefaultAudioSettings()
+                ];
+            } else {
+                $stmt = $pdo->prepare("SELECT audio_override, audio_settings FROM quizzes WHERE id = ?");
+                $stmt->execute([$quizId]);
+                $row = $stmt->fetch();
+                if ($row) {
+                    $response = [
+                        'success' => true,
+                        'audio_override' => $row['audio_override'],
+                        'audio_config' => $row['audio_settings'] ? json_decode($row['audio_settings'], true) : getDefaultAudioSettings()
+                    ];
+                } else {
+                    $response = ['error' => 'Quiz not found'];
+                }
+            }
+            break;
+
         case 'get_question_answers':
             // Fetch explanation & correct choices on question end
             $pin = $_GET['pin_code'] ?? '';
@@ -1071,41 +1372,6 @@ try {
             ];
             break;
 
-        case 'upload_audio':
-            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
-                $response = ['error' => 'Unauthorized'];
-                break;
-            }
-            if (empty($_FILES['audio_file'])) {
-                $response = ['error' => 'No audio file uploaded'];
-                break;
-            }
-            $file = $_FILES['audio_file'];
-            $fileName = basename($file['name']);
-            $fileExt = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-            $allowedExtensions = ['mp3', 'wav', 'webm', 'ogg'];
-            if (!in_array($fileExt, $allowedExtensions)) {
-                $response = ['error' => 'Invalid file type. Only MP3, WAV, WEBM, and OGG are allowed.'];
-                break;
-            }
-            $safeName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', pathinfo($fileName, PATHINFO_FILENAME)) . '.' . $fileExt;
-            $targetDir = __DIR__ . '/assets/audio/';
-            if (!is_dir($targetDir)) {
-                mkdir($targetDir, 0777, true);
-            }
-            $targetPath = $targetDir . $safeName;
-            
-            if (move_uploaded_file($file['tmp_name'], $targetPath)) {
-                $response = [
-                    'success' => true,
-                    'file_path' => 'assets/audio/' . $safeName,
-                    'file_name' => $fileName
-                ];
-            } else {
-                $response = ['error' => 'Failed to save uploaded file.'];
-            }
-            break;
-
         case 'get_audio_files':
             $dir = __DIR__ . '/assets/audio/';
             $files = [];
@@ -1115,7 +1381,7 @@ try {
                     while (($file = readdir($dh)) !== false) {
                         if ($file !== '.' && $file !== '..') {
                             $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-                            if (in_array($ext, ['mp3', 'wav', 'webm', 'ogg'])) {
+                            if (in_array($ext, ['mp3', 'wav', 'ogg', 'webm'])) {
                                 $files[] = [
                                     'name' => $file,
                                     'path' => 'assets/audio/' . $file
@@ -1127,6 +1393,158 @@ try {
                 }
             }
             $response = ['success' => true, 'files' => $files];
+            break;
+
+        case 'rename_audio':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $input = json_decode(file_get_contents('php://input'), true);
+            $filePath = trim($input['file_path'] ?? '');
+            $newName = trim($input['new_name'] ?? '');
+
+            if (empty($filePath) || empty($newName)) {
+                $response = ['error' => 'File path and new name are required'];
+                break;
+            }
+
+            $baseName = basename($filePath);
+            $oldPath = __DIR__ . '/assets/audio/' . $baseName;
+            if (!file_exists($oldPath) || !is_file($oldPath)) {
+                $response = ['error' => 'Source file does not exist'];
+                break;
+            }
+
+            $ext = strtolower(pathinfo($newName, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['mp3', 'wav', 'ogg'])) {
+                $response = ['error' => 'Invalid file extension. Only MP3, WAV, and OGG are allowed.'];
+                break;
+            }
+            $cleanNewName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', pathinfo($newName, PATHINFO_FILENAME)) . '.' . $ext;
+            $newPath = __DIR__ . '/assets/audio/' . $cleanNewName;
+
+            if (file_exists($newPath)) {
+                $response = ['error' => 'A file with that name already exists'];
+                break;
+            }
+
+            if (rename($oldPath, $newPath)) {
+                $oldRelPath = 'assets/audio/' . $baseName;
+                $newRelPath = 'assets/audio/' . $cleanNewName;
+
+                $stmt = $pdo->prepare("SELECT setting_value FROM global_settings WHERE setting_key = 'global_audio_settings'");
+                $stmt->execute();
+                $globalVal = $stmt->fetchColumn();
+                if ($globalVal) {
+                    $globalValUpdated = str_replace($oldRelPath, $newRelPath, $globalVal);
+                    $stmtUp = $pdo->prepare("UPDATE global_settings SET setting_value = ? WHERE setting_key = 'global_audio_settings'");
+                    $stmtUp->execute([$globalValUpdated]);
+                }
+
+                $stmtQ = $pdo->query("SELECT id, audio_settings FROM quizzes WHERE audio_settings IS NOT NULL");
+                $quizzes = $stmtQ->fetchAll();
+                foreach ($quizzes as $q) {
+                    $updatedSettings = str_replace($oldRelPath, $newRelPath, $q['audio_settings']);
+                    $stmtUpQ = $pdo->prepare("UPDATE quizzes SET audio_settings = ? WHERE id = ?");
+                    $stmtUpQ->execute([$updatedSettings, $q['id']]);
+                }
+
+                $response = ['success' => true, 'new_path' => $newRelPath, 'new_name' => $cleanNewName];
+            } else {
+                $response = ['error' => 'Failed to rename file'];
+            }
+            break;
+
+        case 'delete_audio':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $input = json_decode(file_get_contents('php://input'), true);
+            $filePath = trim($input['file_path'] ?? '');
+
+            if (empty($filePath)) {
+                $response = ['error' => 'File path is required'];
+                break;
+            }
+
+            $baseName = basename($filePath);
+            $targetFile = __DIR__ . '/assets/audio/' . $baseName;
+
+            if (!file_exists($targetFile) || !is_file($targetFile)) {
+                $response = ['error' => 'File does not exist'];
+                break;
+            }
+
+            if (unlink($targetFile)) {
+                $response = ['success' => true];
+            } else {
+                $response = ['error' => 'Failed to delete file'];
+            }
+            break;
+
+        case 'save_audio_settings':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $input = json_decode(file_get_contents('php://input'), true);
+            $quizId = isset($input['quiz_id']) && $input['quiz_id'] !== '' ? intval($input['quiz_id']) : null;
+            $audioOverride = isset($input['audio_override']) ? intval($input['audio_override']) : 0;
+            $audioConfig = $input['audio_config'] ?? null;
+
+            if (!$audioConfig) {
+                $response = ['error' => 'Audio config is required'];
+                break;
+            }
+
+            $configJson = json_encode($audioConfig);
+
+            if ($quizId) {
+                $stmt = $pdo->prepare("UPDATE quizzes SET audio_override = ?, audio_settings = ? WHERE id = ?");
+                $stmt->execute([$audioOverride, $configJson, $quizId]);
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO global_settings (setting_key, setting_value, category) VALUES ('global_audio_settings', ?, 'Audio') ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value");
+                $stmt->execute([$configJson]);
+            }
+
+            $response = ['success' => true];
+            break;
+
+        case 'get_quiz_audio_settings':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $quizId = intval($_GET['quiz_id'] ?? 0);
+            if (!$quizId) {
+                $response = ['error' => 'Quiz ID is required'];
+                break;
+            }
+
+            $stmt = $pdo->prepare("SELECT audio_override, audio_settings FROM quizzes WHERE id = ?");
+            $stmt->execute([$quizId]);
+            $info = $stmt->fetch();
+
+            if (!$info) {
+                $response = ['error' => 'Quiz not found'];
+                break;
+            }
+
+            $audioConfig = null;
+            if ($info['audio_settings']) {
+                $audioConfig = json_decode($info['audio_settings'], true);
+            }
+            if (!$audioConfig) {
+                $audioConfig = getResolvedAudioSettings($pdo);
+            }
+
+            $response = [
+                'success' => true,
+                'audio_override' => intval($info['audio_override']),
+                'audio_config' => $audioConfig
+            ];
             break;
 
         case 'export_results':
