@@ -466,13 +466,70 @@ session_start();
     let currentActiveCategory = '';
 
     function loadGlobalSettings() {
+      // Inject the Audio tab as a special local-only category
+      if (!currentSettingsData['Audio & Music']) {
+        currentSettingsData['Audio & Music'] = '__AUDIO_PANEL__';
+      }
       fetch('api.php?action=get_settings')
         .then(res => res.json())
         .then(data => {
           if (data.success && data.settings) {
-            currentSettingsData = data.settings;
+            // Merge: keep Audio tab at the top, then all DB categories
+            const merged = { 'Audio & Music': '__AUDIO_PANEL__' };
+            Object.assign(merged, data.settings);
+            currentSettingsData = merged;
             renderSettingsCategories();
+            // Also populate dropdowns from audio files
+            loadAudioDropdowns();
           }
+        });
+    }
+
+    function loadAudioDropdowns() {
+      fetch('api.php?action=get_audio_files')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.success || !data.files) return;
+          const dropdownIds = ['settings-start-music', 'settings-question-music', 'settings-locked-music', 'settings-wrong-music'];
+          dropdownIds.forEach(id => {
+            const dropdown = document.getElementById(id);
+            if (!dropdown) return;
+            const currentValue = dropdown.value || localStorage.getItem(id.replace(/-/g,'_')) || '';
+            // Keep existing hardcoded options, just append new files
+            data.files.forEach(file => {
+              if ([...dropdown.options].some(o => o.value === file.path)) return;
+              const opt = document.createElement('option');
+              opt.value = file.path;
+              opt.textContent = file.name;
+              dropdown.appendChild(opt);
+            });
+            if (currentValue && [...dropdown.options].some(o => o.value === currentValue)) {
+              dropdown.value = currentValue;
+            }
+          });
+          // Restore saved selections
+          const saved = {
+            'settings-start-music': localStorage.getItem('settings_start_music') || 'assets/audio/chalo.mp3',
+            'settings-question-music': localStorage.getItem('settings_question_music') || 'SYNTH_KAHOOT_QUESTION',
+            'settings-locked-music': localStorage.getItem('settings_locked_music') || 'SYNTH_KAHOOT_LOCKED',
+            'settings-wrong-music': localStorage.getItem('settings_wrong_music') || 'SYNTH_KAHOOT_WRONG',
+          };
+          for (const id in saved) {
+            const el = document.getElementById(id);
+            if (el && [...el.options].some(o => o.value === saved[id])) el.value = saved[id];
+          }
+          // Restore mute button state
+          const muteBtn = document.getElementById('settings-mute-btn');
+          if (muteBtn) {
+            if (localStorage.getItem('settings_music_enabled') === 'false') {
+              muteBtn.innerHTML = `<i data-lucide="volume-x" class="w-4 h-4 text-red-500"></i> Sound Muted`;
+              muteBtn.className = 'bg-red-50 hover:bg-red-100 text-red-650 font-bold text-xs px-4 py-2.5 rounded-xl border border-red-200 flex items-center gap-1.5 cursor-pointer transition-colors';
+            } else {
+              muteBtn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i> Sound Active`;
+              muteBtn.className = 'bg-indigo-50 hover:bg-indigo-100 text-indigo-750 font-bold text-xs px-4 py-2.5 rounded-xl border border-indigo-200 flex items-center gap-1.5 cursor-pointer transition-colors';
+            }
+          }
+          lucide.createIcons();
         });
     }
 
@@ -511,6 +568,78 @@ session_start();
     function renderSettingsFields(category) {
       document.getElementById('settings-current-category-title').innerText = category;
       const container = document.getElementById('settings-fields-container');
+
+      // Special: Audio & Music tab renders dedicated UI
+      if (category === 'Audio & Music') {
+        container.innerHTML = `
+          <div class="space-y-6 pb-12">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Starting Music (Lobby / Launch)</label>
+                <select id="settings-start-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
+                  <option value="assets/audio/chalo.mp3">Chalo Vocal (KBC)</option>
+                  <option value="assets/audio/kbc_intro.webm">KBC Intro Theme</option>
+                  <option value="assets/audio/kbc_music.webm">KBC Classic Background</option>
+                </select>
+              </div>
+              <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Active Question Music</label>
+                <select id="settings-question-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
+                  <option value="SYNTH_KAHOOT_QUESTION">Kahoot Style (Synthesized)</option>
+                  <option value="assets/audio/kbc_music.webm">KBC Classic Background</option>
+                  <option value="assets/audio/kbc_intro.webm">KBC Intro Theme</option>
+                </select>
+              </div>
+              <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Lock-in Sound (Student Submission)</label>
+                <select id="settings-locked-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
+                  <option value="SYNTH_KAHOOT_LOCKED">Kahoot Pop (Synthesized)</option>
+                  <option value="assets/audio/kbc_locked.mp3">KBC Answer Locked-In</option>
+                  <option value="assets/audio/chalo.mp3">Chalo Vocal (KBC)</option>
+                </select>
+              </div>
+              <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Wrong Answer Sound</label>
+                <select id="settings-wrong-music" class="w-full bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-semibold cursor-pointer">
+                  <option value="SYNTH_KAHOOT_WRONG">Retro Buzzer (Synthesized)</option>
+                  <option value="assets/audio/kbc_wrong.mp3">KBC Wrong Answer</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-bold text-slate-700">Volume Mute Override</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Mute or unmute all game audio globally</p>
+              </div>
+              <button onclick="toggleMute()" id="settings-mute-btn" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-750 font-bold text-xs px-4 py-2.5 rounded-xl border border-indigo-200 flex items-center gap-1.5 cursor-pointer transition-colors">
+                <i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i> Sound Active
+              </button>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
+              <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="upload-cloud" class="w-4 h-4 text-indigo-600"></i> Import Custom Audio File
+              </h4>
+              <div class="flex flex-col sm:flex-row gap-3 items-center">
+                <input type="file" id="import-audio-file" accept="audio/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" />
+                <button onclick="handleImportAudio()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-sm whitespace-nowrap">
+                  <i data-lucide="upload" class="w-4 h-4"></i> Upload Song
+                </button>
+              </div>
+              <p class="text-[10px] text-slate-400">Supported: MP3, WAV, WEBM, OGG. Uploaded files appear in dropdowns above.</p>
+            </div>
+
+            <button onclick="saveAudioSettings()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md">
+              <i data-lucide="save" class="w-4 h-4"></i> Save & Apply Audio Settings
+            </button>
+          </div>
+        `;
+        lucide.createIcons();
+        loadAudioDropdowns();
+        return;
+      }
+
       container.innerHTML = '<div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12"></div>';
       const grid = container.querySelector('.grid');
       
@@ -554,6 +683,43 @@ session_start();
         }
         grid.appendChild(wrap);
       }
+    }
+
+    // Audio-specific save (localStorage + sound engine)
+    function saveAudioSettings() {
+      const start  = document.getElementById('settings-start-music')?.value;
+      const question = document.getElementById('settings-question-music')?.value;
+      const locked = document.getElementById('settings-locked-music')?.value;
+      const wrong  = document.getElementById('settings-wrong-music')?.value;
+      if (start)    localStorage.setItem('settings_start_music',    start);
+      if (question) localStorage.setItem('settings_question_music', question);
+      if (locked)   localStorage.setItem('settings_locked_music',   locked);
+      if (wrong)    localStorage.setItem('settings_wrong_music',    wrong);
+      sound.reloadTracks();
+      alert('Audio settings saved and applied successfully!');
+    }
+
+    function handleImportAudio() {
+      const fileInput = document.getElementById('import-audio-file');
+      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert('Please select an audio file first.');
+        return;
+      }
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('audio_file', file);
+      fetch('api.php?action=upload_audio', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            alert('Audio file imported successfully!');
+            fileInput.value = '';
+            loadAudioDropdowns();
+          } else {
+            alert('Failed to import audio: ' + (data.error || 'Unknown error'));
+          }
+        })
+        .catch(() => alert('An error occurred while uploading.'));
     }
 
     function saveGlobalSettings() {
