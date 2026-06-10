@@ -45,11 +45,17 @@ $DEFAULT_SETTINGS = [
         "anon_leaderboard" => ["label" => "Anonymous Leaderboard Mode", "type" => "boolean", "value" => "0"]
     ],
     "Question Settings" => [
-        "shuffle_questions" => ["label" => "Shuffle Questions", "type" => "boolean", "value" => "0"],
-        "shuffle_options" => ["label" => "Shuffle Options", "type" => "boolean", "value" => "0"],
-        "random_question_sel" => ["label" => "Random Question Selection", "type" => "boolean", "value" => "0"],
-        "category_wise" => ["label" => "Category Wise Questions", "type" => "boolean", "value" => "0"],
-        "difficulty_levels" => ["label" => "Difficulty Levels", "type" => "boolean", "value" => "1"]
+        "auto_question_change" => ["label" => "Auto Question Change", "type" => "boolean", "value" => "1"],
+        "auto_change_delay" => ["label" => "Auto Change Delay", "type" => "select", "options" => "0 Seconds,1 Second,2 Seconds,3 Seconds,5 Seconds,10 Seconds", "value" => "2 Seconds"],
+        "after_all_submit" => ["label" => "After All Participants Submit", "type" => "select", "options" => "Auto Move To Next Question,Wait Until Timer Ends,Admin Manual Control", "value" => "Wait Until Timer Ends"],
+        "early_completion_logic" => ["label" => "Early Completion Logic", "type" => "select", "options" => "Move to next question immediately,Move after custom delay,Show leaderboard first,Wait for timer completion", "value" => "Wait for timer completion"],
+        "transition_screen" => ["label" => "Question Transition Screen", "type" => "boolean", "value" => "1"],
+        "transition_duration" => ["label" => "Transition Duration", "type" => "select", "options" => "1 sec,2 sec,3 sec,5 sec,Custom", "value" => "3 sec"],
+        "reveal_animation" => ["label" => "Question Reveal Animation", "type" => "select", "options" => "None,Fade,Slide,Zoom,Flip", "value" => "Fade"],
+        "auto_start_countdown" => ["label" => "Auto Start Next Question Countdown", "type" => "boolean", "value" => "1"],
+        "per_question_custom_timer" => ["label" => "Per Question Custom Timer", "type" => "boolean", "value" => "0"],
+        "question_nav_mode" => ["label" => "Question Navigation Mode", "type" => "select", "options" => "Fully Automatic,Semi Automatic,Admin Manual", "value" => "Semi Automatic"],
+        "enable_emergency_controls" => ["label" => "Enable Emergency Controls (Skip, End, Restart, Extend)", "type" => "boolean", "value" => "1"]
     ],
     "Anti-Cheat Settings" => [
         "prevent_multi_tabs" => ["label" => "Prevent Multiple Tabs", "type" => "boolean", "value" => "1"],
