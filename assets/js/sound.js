@@ -3,6 +3,16 @@ class SoundSynth {
     this.ctx = null;
     this.lobbyInterval = null;
     this.isMuted = false;
+    this.kbcIntro = new Audio('assets/audio/kbc_intro.webm');
+    this.kbcAudio = new Audio('assets/audio/kbc_music.webm');
+    this.kbcAudio.loop = true;
+    this.hasPlayedIntro = false;
+    
+    this.kbcIntro.onended = () => {
+      if (!this.isMuted && this.currentTimeLeft > 0) {
+        this.kbcAudio.play().catch(e => console.log('Audio playback prevented', e));
+      }
+    };
   }
 
   initCtx() {
@@ -16,6 +26,8 @@ class SoundSynth {
 
   setMute(mute) {
     this.isMuted = mute;
+    this.kbcAudio.muted = mute;
+    this.kbcIntro.muted = mute;
     if (mute) {
       this.stopAll();
     }
@@ -58,39 +70,67 @@ class SoundSynth {
     this.lobbyInterval = setInterval(playNote, 400);
   }
 
-  playCountdown(timeLeft) {
+  startKBCMusic(questionIndex) {
     if (this.isMuted) return;
+
+    if (questionIndex === 0) {
+      if (!this.hasPlayedIntro) {
+        this.hasPlayedIntro = true;
+        this.kbcIntro.currentTime = 0;
+        this.kbcIntro.play().catch(e => console.log('Audio playback prevented', e));
+      } else if (this.kbcIntro.paused && this.kbcIntro.currentTime > 0) {
+        if (this.kbcIntro.ended && this.kbcAudio.paused) {
+          this.kbcAudio.play().catch(e => console.log('Audio playback prevented', e));
+        }
+      }
+    } else {
+      if (this.kbcAudio.paused) {
+        this.kbcAudio.currentTime = 0;
+        this.kbcAudio.play().catch(e => console.log('Audio playback prevented', e));
+      }
+    }
+  }
+
+  stopKBCMusic() {
+    if (!this.kbcIntro.paused) {
+      this.kbcIntro.pause();
+      this.kbcIntro.currentTime = 0;
+    }
+    if (!this.kbcAudio.paused) {
+      this.kbcAudio.pause();
+      this.kbcAudio.currentTime = 0;
+    }
+  }
+
+  playCountdown(timeLeft, questionIndex = 1) {
+    this.currentTimeLeft = timeLeft;
+    if (this.isMuted) {
+      this.stopKBCMusic();
+      return;
+    }
+    
     this.initCtx();
     const ctx = this.ctx;
 
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    if (timeLeft <= 5 && timeLeft > 0) {
-      // High pitch sawtooth double warning beats
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    if (timeLeft > 0) {
+      this.startKBCMusic(questionIndex);
     } else if (timeLeft === 0) {
-      // Alarm buzzer
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(140, ctx.currentTime);
-      osc.frequency.linearRampToValueAtTime(80, ctx.currentTime + 0.5);
-      gain.gain.setValueAtTime(0.6, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-    } else {
-      // normal soft ticking clock beat
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(500, ctx.currentTime);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      this.stopKBCMusic();
+      
+      // KBC Time's up buzzer
+      const oscHigh = ctx.createOscillator();
+      const gainHigh = ctx.createGain();
+      oscHigh.type = 'sawtooth';
+      oscHigh.frequency.setValueAtTime(150, ctx.currentTime);
+      oscHigh.frequency.linearRampToValueAtTime(50, ctx.currentTime + 1.0);
+      gainHigh.gain.setValueAtTime(0.7, ctx.currentTime);
+      gainHigh.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.0);
+      
+      oscHigh.connect(gainHigh);
+      gainHigh.connect(ctx.destination);
+      oscHigh.start();
+      oscHigh.stop(ctx.currentTime + 1.5);
     }
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.6);
   }
 
   playVictory() {
@@ -123,6 +163,7 @@ class SoundSynth {
       clearInterval(this.lobbyInterval);
       this.lobbyInterval = null;
     }
+    this.stopKBCMusic();
   }
 }
 

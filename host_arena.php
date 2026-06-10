@@ -215,8 +215,8 @@
           </div>
 
           <div class="mt-6 text-center p-4 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl font-black flex items-center justify-center gap-2 shadow-inner">
-            <i data-lucide="sparkles" class="w-5 h-5 text-indigo-500 animate-pulse"></i>
-            <span id="auto-next-text">Next question starts in 8s...</span>
+            <i data-lucide="loader" class="w-5 h-5 text-indigo-500 animate-spin"></i>
+            <span id="auto-next-text">Switching to next question...</span>
           </div>
         </div>
       </div>
@@ -413,21 +413,9 @@
         refreshActiveQuestion(data);
       } else if (newState === 'SHOWING_LEADERBOARD') {
         loadLeaderboardChoices();
-        
-        let secondsLeft = 8;
-        const textSpan = document.getElementById('auto-next-text');
-        if (textSpan) textSpan.innerText = `Next question starts in ${secondsLeft}s...`;
-
-        autoNextInterval = setInterval(() => {
-          secondsLeft--;
-          const span = document.getElementById('auto-next-text');
-          if (span) span.innerText = `Next question starts in ${secondsLeft}s...`;
-          if (secondsLeft <= 0) { clearInterval(autoNextInterval); autoNextInterval = null; }
-        }, 1000);
-
         autoNextTimeout = setTimeout(() => {
           if (currentState === 'SHOWING_LEADERBOARD') nextQuestion();
-        }, 8000);
+        }, 5000);
       }
 
       lucide.createIcons();
@@ -475,7 +463,7 @@
       document.getElementById('countdown-text').innerText = `${data.time_left}s Left`;
 
       // Play clock tick beats
-      sound.playCountdown(data.time_left);
+      sound.playCountdown(data.time_left, data.current_question_index);
 
       // Fetch Telemetry Admin Dashboard data
       fetch('api.php?action=get_telemetry&pin_code=' + pin)

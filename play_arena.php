@@ -241,7 +241,7 @@ try {
           // Active Timer updates
           if (data.status === 'ACTIVE_QUESTION') {
             document.getElementById('countdown-text').innerText = `${data.time_left}s Left`;
-            sound.playCountdown(data.time_left);
+            sound.playCountdown(data.time_left, data.current_question_index);
           }
         });
     }
@@ -364,16 +364,15 @@ try {
       if (data && data.is_correct !== undefined) {
          box.innerHTML = `
            <div class="text-center p-10 md:p-14 glass-panel rounded-[2rem] shadow-2xl space-y-6 transform transition-all animate-[scale-in_0.3s_ease-out]">
-             <div class="w-24 h-24 rounded-full flex items-center justify-center mx-auto text-5xl mb-6 shadow-xl ${data.is_correct ? 'bg-gradient-to-br from-green-400 to-green-600 text-white shadow-green-500/40' : 'bg-gradient-to-br from-red-400 to-red-600 text-white shadow-red-500/40'}">
-               ${data.is_correct ? '✓' : '✗'}
+             <div class="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center mx-auto text-5xl mb-6 shadow-xl text-indigo-600">
+               <i data-lucide="lock" class="w-10 h-10"></i>
              </div>
-             <h3 class="font-black text-3xl md:text-4xl text-slate-900">Answer Submitted!</h3>
-             <div class="text-2xl font-black px-6 py-3 rounded-2xl inline-block ${data.is_correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                ${data.is_correct ? '+' + data.score_earned + ' Points (Rank: #' + data.answer_rank + ')' : '0 Points'}
+             <h3 class="font-black text-3xl md:text-4xl text-slate-900">Answer Locked In!</h3>
+             <div class="text-xl font-bold px-6 py-3 rounded-2xl inline-block bg-slate-100 text-slate-700 border border-slate-200">
+                Waiting for the results...
              </div>
-             <p class="text-xl font-bold text-slate-700 mt-4">Total Score: ${data.total_score}</p>
              <p class="text-md font-semibold text-slate-500 mt-8 animate-pulse flex items-center justify-center gap-2">
-                <i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Waiting for next question...
+                <i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Host will reveal answer shortly...
              </p>
            </div>
          `;
@@ -438,7 +437,7 @@ try {
             const score = data.student_score;
             if (score.isCorrect) {
               banner.className = "p-5 rounded-2xl text-center border-2 font-black text-xl bg-green-500/10 text-green-700 border-green-500/30 backdrop-blur-md";
-              banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="check-circle" class="w-6 h-6"></i> Correct! +${score.scoreEarned} Points</span>`;
+              banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="check-circle" class="w-6 h-6"></i> Correct!</span>`;
             } else {
               banner.className = "p-5 rounded-2xl text-center border-2 font-black text-xl bg-red-500/10 text-red-700 border-red-500/30 backdrop-blur-md";
               banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="x-circle" class="w-6 h-6"></i> Incorrect Answer</span>`;
@@ -452,17 +451,7 @@ try {
 
           // Rankings
           const ranksBox = document.getElementById('ranking-list-box');
-          ranksBox.innerHTML = data.leaderboard.map((row, idx) => `
-            <div class="flex justify-between items-center p-4 rounded-xl bg-white/60 border border-white shadow-sm hover:shadow-md transition-shadow">
-              <div class="flex items-center gap-4">
-                <span class="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-black text-sm">#${idx + 1}</span>
-                <span class="font-bold text-slate-800 text-lg">${row.name}</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg font-black text-sm">${row.score} pts</span>
-              </div>
-            </div>
-          `).join('');
+          ranksBox.innerHTML = `<p class="text-slate-500 font-semibold italic text-center py-4">Look at the presenter screen for full live rankings!</p>`;
           lucide.createIcons();
         });
     }
