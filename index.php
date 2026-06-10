@@ -79,19 +79,19 @@ session_start();
       <div class="absolute top-1/4 left-1/3 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
       <div class="absolute bottom-1/4 right-1/3 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-8 text-center space-y-6 relative overflow-hidden">
-        <img src="assets/logo.png" alt="TechnoHacks Solutions" class="mx-auto h-20 w-20 object-contain animate-bounce" />
+      <div class="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl p-8 text-center space-y-6 relative overflow-hidden">
+        <img src="assets/logo.png" alt="TechnoHacks Solutions" class="mx-auto h-32 w-32 object-contain animate-bounce" />
         <div>
-          <h2 class="font-sans text-2xl font-extrabold text-slate-900">TechnoQuiz Lobby</h2>
-          <p class="text-slate-500 text-xs mt-1">Ready to test your skills? Enter details below</p>
+          <h2 class="font-sans text-3xl font-extrabold text-slate-900">TechnoQuiz Lobby</h2>
+          <p class="text-slate-505 text-sm mt-1">Ready to test your skills? Enter details below</p>
         </div>
 
         <div id="join-error" class="hidden p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-medium"></div>
 
         <!-- PIN Step Form -->
         <form id="pin-form" onsubmit="submitPIN(event)" class="space-y-4">
-          <input type="text" id="pin-input" required placeholder="Enter Game PIN code" class="w-full text-center font-mono font-bold text-3xl tracking-widest bg-slate-50 border-2 border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl p-4 text-slate-800" maxlength="6" />
-          <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl text-sm transition-colors cursor-pointer">
+          <input type="text" id="pin-input" required placeholder="PIN Code" class="w-full text-center font-mono font-black text-5xl tracking-widest bg-slate-50 border-4 border-slate-200 focus:border-indigo-650 focus:outline-none rounded-[1.5rem] p-6 text-slate-800 focus:ring-4 focus:ring-indigo-550/10 shadow-inner" maxlength="6" />
+          <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-[1.5rem] text-sm transition-colors cursor-pointer shadow-md">
             Enter Game Lobby
           </button>
         </form>
@@ -100,13 +100,13 @@ session_start();
         <form id="username-form" onsubmit="submitUsername(event)" class="hidden space-y-4">
           <div class="text-left space-y-1">
             <label class="text-[10px] uppercase font-bold tracking-wider text-slate-500">Pick a Display Name</label>
-            <input type="text" id="username-input" required placeholder="e.g. JohnDoe_Prep" class="w-full text-center font-bold text-xl bg-slate-50 border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl p-3.5 text-slate-800" />
+            <input type="text" id="username-input" required placeholder="e.g. JohnDoe_Prep" class="w-full text-center font-bold text-2xl bg-slate-50 border-2 border-slate-200 focus:border-indigo-650 focus:outline-none rounded-xl p-4 text-slate-800" />
           </div>
           <div class="grid grid-cols-2 gap-3 pt-2">
-            <button type="button" onclick="showPINStep()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl text-xs transition-colors cursor-pointer">
+            <button type="button" onclick="showPINStep()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl text-xs transition-colors cursor-pointer border border-slate-200">
               Back
             </button>
-            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-xs transition-colors cursor-pointer">
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-xs transition-colors cursor-pointer shadow-sm">
               OK, Go! 🚀
             </button>
           </div>
@@ -153,40 +153,73 @@ session_start();
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 class="font-sans text-2xl font-extrabold text-slate-900">Host Live Quiz Arena</h2>
-          <p class="text-slate-500 text-sm">Select a quiz template below to generate a live room code and display standings.</p>
+          <p class="text-slate-500 text-sm">Select a quiz below to generate a live room code and display standings.</p>
         </div>
         <button onclick="switchTab('MAKE')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer">
-          <i data-lucide="plus" class="w-4 h-4"></i> Compose Quiz Template
+          <i data-lucide="plus" class="w-4 h-4"></i> Create New Quiz
         </button>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <!-- Templates Column -->
         <div class="space-y-4">
-          <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400">Available Templates</h3>
+          <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400">Available Quizzes</h3>
           <div id="quiz-list" class="space-y-3.5 max-h-[500px] overflow-y-auto pr-2">
             <!-- Dynamic quizzes render here -->
           </div>
         </div>
 
-        <!-- Student metrics list -->
-        <div class="space-y-4">
-          <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400">Student Placement Roster</h3>
-          <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-xs">
+        <!-- Dashboard Statistics Section -->
+        <div class="space-y-6">
+          <!-- Recent Quizzes Card -->
+          <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
+            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5"><i data-lucide="clock" class="w-4 h-4 text-indigo-650"></i> Recent Quizzes</h3>
+            <div id="dash-recent-quizzes" class="space-y-2 text-xs">
+              <p class="text-slate-400 italic">No recent quizzes found.</p>
+            </div>
+          </div>
+
+          <!-- Top Ranking Students Card -->
+          <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
+            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5"><i data-lucide="trophy" class="w-4 h-4 text-yellow-500"></i> Top Ranking Students</h3>
+            <div class="overflow-x-auto text-xs">
+              <table class="w-full text-left">
                 <thead>
-                  <tr class="border-b border-slate-100 text-slate-400 uppercase font-bold tracking-wider h-8">
+                  <tr class="border-b border-slate-100 text-slate-400 font-bold h-7 uppercase tracking-wider">
                     <th>Student</th>
-                    <th>Quizzes</th>
-                    <th>Accuracy</th>
-                    <th>Placement Prep</th>
+                    <th class="text-right">Total Points</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-50" id="student-roster-body">
-                  <!-- Hardcoded Roster info -->
+                <tbody class="divide-y divide-slate-50" id="dash-top-students">
+                  <tr><td colspan="2" class="text-slate-400 italic py-2">Loading top rankings...</td></tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- Student Marks Card -->
+          <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
+            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5"><i data-lucide="award" class="w-4 h-4 text-emerald-600"></i> Student Marks</h3>
+            <div class="overflow-x-auto text-xs">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="border-b border-slate-100 text-slate-400 font-bold h-7 uppercase tracking-wider">
+                    <th>Student</th>
+                    <th class="text-right">Total Marks</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50" id="dash-student-marks">
+                  <tr><td colspan="2" class="text-slate-400 italic py-2">Loading student marks...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Accuracy Statistics Card -->
+          <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
+            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5"><i data-lucide="percent" class="w-4 h-4 text-cyan-600"></i> Accuracy Statistics</h3>
+            <div id="dash-accuracy-stats" class="space-y-3 text-xs">
+              <p class="text-slate-400 italic">Loading accuracy stats...</p>
             </div>
           </div>
         </div>
@@ -198,8 +231,8 @@ session_start();
       <!-- Compose wizard -->
       <div class="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
         <div>
-          <h2 class="font-sans text-xl font-bold text-slate-900">Compose Quiz Template</h2>
-          <p class="text-xs text-slate-500 mt-0.5">Build your quiz questions manually or append generated questions from the AI engine.</p>
+          <h2 class="font-sans text-xl font-bold text-slate-900">Create New Quiz</h2>
+          <p class="text-xs text-slate-505 mt-0.5">Build your quiz questions manually or append generated questions from the AI engine.</p>
         </div>
 
         <form onsubmit="saveQuiz(event)" class="space-y-5">
@@ -234,7 +267,7 @@ session_start();
           </div>
 
           <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-xs transition-colors cursor-pointer">
-            Publish quiz template to presenter
+            Publish quiz to presenter
           </button>
         </form>
       </div>
@@ -267,12 +300,13 @@ session_start();
               </div>
               <div class="space-y-1">
                 <label class="text-[10px] font-bold uppercase text-slate-500">Question count</label>
-                <select id="ai-count" class="w-full bg-white border border-slate-200 focus:outline-none rounded-lg p-2.5 text-slate-800 text-xs cursor-pointer">
-                  <option>3</option>
-                  <option>5</option>
-                  <option>10</option>
-                </select>
+                <input type="number" id="ai-count" min="1" value="5" class="w-full bg-white border border-slate-200 focus:border-indigo-650 focus:outline-none rounded-lg p-2.5 text-slate-800 text-xs font-mono font-bold" />
               </div>
+            </div>
+
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1"><i data-lucide="file-up" class="w-3.5 h-3.5 text-indigo-650"></i> Reference File (PDF/TXT) <span class="text-slate-400 font-normal">(Optional)</span></label>
+              <input type="file" id="ai-file" accept=".pdf,.txt" class="w-full text-xs text-slate-550 bg-white border border-slate-200 focus:outline-none rounded-lg p-2 cursor-pointer file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[10px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
             </div>
 
             <button type="button" onclick="generateAIQuestions()" id="ai-generate-btn" class="w-full bg-cyan-600 hover:bg-cyan-750 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer">
@@ -384,6 +418,77 @@ session_start();
 
   </main>
 
+  <!-- Detailed Leaderboard Modal -->
+  <div id="leaderboard-modal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden relative animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div>
+          <h3 class="font-sans text-xl font-extrabold text-slate-900" id="leaderboard-modal-title">Quiz Leaderboard</h3>
+          <p class="text-xs text-slate-500 mt-1" id="leaderboard-modal-subtitle">Session Details</p>
+        </div>
+        <button onclick="closeLeaderboardModal()" class="p-2 text-slate-400 hover:text-slate-650 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Content Wrapper (Swappable Leaderboard / Student Detail View) -->
+      <div class="flex-grow overflow-y-auto p-6 relative">
+        
+        <!-- View 1: Leaderboard Table -->
+        <div id="leaderboard-view-main" class="space-y-4">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 text-slate-400 font-bold text-xs uppercase tracking-wider h-10">
+                  <th class="py-2 pl-4">Rank</th>
+                  <th class="py-2">Name</th>
+                  <th class="py-2 text-right">Points</th>
+                  <th class="py-2 text-right">Marks (Correct/Total)</th>
+                  <th class="py-2 text-right">Correct Answers</th>
+                  <th class="py-2 text-right pr-4">Solved Questions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-sm" id="leaderboard-modal-table-body">
+                <!-- Dynamic rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- View 2: Student Detail History (Hidden by default) -->
+        <div id="leaderboard-view-student" class="hidden space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <button onclick="showMainLeaderboardView()" class="flex items-center gap-1.5 text-xs text-indigo-650 hover:text-indigo-800 font-bold transition-colors cursor-pointer">
+              <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Leaderboard
+            </button>
+            <h4 class="font-sans font-extrabold text-slate-900 text-sm uppercase tracking-wider" id="student-detail-header-name">Student Performance</h4>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 text-slate-400 font-bold text-xs uppercase tracking-wider h-10">
+                  <th class="py-2 pl-4">Question</th>
+                  <th class="py-2">Student's Answer</th>
+                  <th class="py-2">Correct Answer</th>
+                  <th class="py-2 text-center">Result</th>
+                  <th class="py-2 text-right">Points</th>
+                  <th class="py-2 text-right pr-4">Time</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-sm" id="student-detail-table-body">
+                <!-- Dynamic rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <footer class="bg-white border-t border-slate-200 py-6 mt-12">
     <div class="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center text-slate-400 text-xs gap-3">
@@ -423,6 +528,7 @@ session_start();
 
       if (tabId === 'PRESENT') {
         loadTemplates();
+        loadDashboardStats();
       } else if (tabId === 'HISTORY') {
         loadHistorySessions();
       } else if (tabId === 'SCORING') {
@@ -785,9 +891,12 @@ session_start();
                 <div class="flex gap-4 text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4">
                   <span>PIN: <span class="text-indigo-650 font-mono">${s.pin_code}</span></span>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 mt-4 flex-wrap">
                   <a href="host_arena.php?pin=${s.pin_code}" target="_blank" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm">
                     <i data-lucide="presentation" class="w-3.5 h-3.5"></i> Open Presenter Panel
+                  </a>
+                  <a href="live_scoring.php?pin=${s.pin_code}" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm">
+                    <i data-lucide="activity" class="w-3.5 h-3.5"></i> Live Scoring
                   </a>
                 </div>
               </div>
@@ -826,13 +935,92 @@ session_start();
                   <span>PIN: <span class="text-indigo-650 font-mono">${s.pin_code}</span></span>
                   <span>Completed at: ${new Date(s.updated_at).toLocaleDateString()}</span>
                 </div>
-                <div class="bg-slate-50 rounded-lg border border-slate-100 p-4">
+                <div class="bg-slate-50 rounded-lg border border-slate-100 p-4 animate-none">
                   <h4 class="text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-wider flex items-center gap-1.5"><i data-lucide="trophy" class="w-3.5 h-3.5 text-yellow-500"></i> Final Standings</h4>
                   ${leaders || '<p class="text-xs text-slate-400 italic">No participant records</p>'}
                 </div>
+                <button onclick="openLeaderboardModal('${s.pin_code}', '${s.quiz_title.replace(/'/g, "\\'")}')" class="mt-4 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-770 font-bold py-2.5 px-4 rounded-xl border border-indigo-200 text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm">
+                  <i data-lucide="list-ordered" class="w-4 h-4"></i> View Detailed Leaderboard
+                </button>
               </div>
             `;
           });
+          lucide.createIcons();
+        });
+    }
+
+    function loadDashboardStats() {
+      fetch('api.php?action=get_dashboard_stats')
+        .then(res => res.json())
+        .then(data => {
+          // 1. Recent Quizzes
+          const recentBox = document.getElementById('dash-recent-quizzes');
+          recentBox.innerHTML = '';
+          if (!data.recent_quizzes || data.recent_quizzes.length === 0) {
+            recentBox.innerHTML = '<p class="text-slate-400 italic">No recent quizzes found.</p>';
+          } else {
+            data.recent_quizzes.forEach(q => {
+              recentBox.innerHTML += `
+                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
+                  <span class="font-semibold text-slate-700">${q.title}</span>
+                  <span class="font-mono text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded font-bold">${q.pin_code}</span>
+                </div>
+              `;
+            });
+          }
+
+          // 2. Top Students
+          const topBody = document.getElementById('dash-top-students');
+          topBody.innerHTML = '';
+          if (!data.top_students || data.top_students.length === 0) {
+            topBody.innerHTML = '<tr><td colspan="2" class="text-slate-400 italic py-2">No student records found.</td></tr>';
+          } else {
+            data.top_students.forEach(s => {
+              topBody.innerHTML += `
+                <tr class="h-8 hover:bg-slate-50 transition-colors">
+                  <td class="font-semibold text-slate-800">${s.username}</td>
+                  <td class="text-right font-mono text-indigo-650 font-bold">${s.total_points} pts</td>
+                </tr>
+              `;
+            });
+          }
+
+          // 3. Student Marks
+          const marksBody = document.getElementById('dash-student-marks');
+          marksBody.innerHTML = '';
+          if (!data.student_marks || data.student_marks.length === 0) {
+            marksBody.innerHTML = '<tr><td colspan="2" class="text-slate-400 italic py-2">No marks records found.</td></tr>';
+          } else {
+            data.student_marks.forEach(s => {
+              marksBody.innerHTML += `
+                <tr class="h-8 hover:bg-slate-50 transition-colors">
+                  <td class="font-semibold text-slate-800">${s.username}</td>
+                  <td class="text-right font-mono text-emerald-605 font-bold">${s.total_marks} Marks</td>
+                </tr>
+              `;
+            });
+          }
+
+          // 4. Accuracy Stats
+          const accBox = document.getElementById('dash-accuracy-stats');
+          accBox.innerHTML = '';
+          if (!data.accuracy_stats || data.accuracy_stats.length === 0) {
+            accBox.innerHTML = '<p class="text-slate-400 italic">No accuracy statistics found.</p>';
+          } else {
+            data.accuracy_stats.forEach(s => {
+              accBox.innerHTML += `
+                <div class="space-y-1">
+                  <div class="flex justify-between text-xs font-semibold text-slate-700">
+                    <span>${s.username} (${s.correct}/${s.solved} correct)</span>
+                    <span class="font-mono text-indigo-600">${s.pct}%</span>
+                  </div>
+                  <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200 shadow-inner">
+                    <div class="bg-gradient-to-r from-indigo-500 to-cyan-500 h-2 rounded-full" style="width: ${s.pct}%"></div>
+                  </div>
+                </div>
+              `;
+            });
+          }
           lucide.createIcons();
         });
     }
@@ -1098,22 +1286,36 @@ session_start();
       const topic = document.getElementById('ai-topic').value;
       const diff = document.getElementById('ai-diff').value;
       const count = document.getElementById('ai-count').value;
+      const fileInput = document.getElementById('ai-file');
       const btn = document.getElementById('ai-generate-btn');
 
-      if (!topic.trim()) return;
+      const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+      if (!topic.trim() && !hasFile) {
+        alert('Please specify a topic or upload a PDF/TXT reference file.');
+        return;
+      }
 
       btn.disabled = true;
       btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Generating questions...`;
       lucide.createIcons();
 
+      const formData = new FormData();
+      formData.append('topic', topic);
+      formData.append('difficulty', diff);
+      formData.append('count', count);
+      if (hasFile) {
+        formData.append('ai_file', fileInput.files[0]);
+      }
+
       fetch('api.php?action=generate_ai_questions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, difficulty: diff, count })
+        body: formData
       })
       .then(res => res.json())
       .then(data => {
-        if (data.questions) {
+        if (data.error) {
+          alert(data.error);
+        } else if (data.questions) {
           data.questions.forEach(q => {
             composedQuestions.push({
               type: 'MCQ',
@@ -1124,8 +1326,13 @@ session_start();
             });
           });
           document.getElementById('ai-topic').value = '';
+          if (fileInput) fileInput.value = '';
           renderQuestions();
         }
+      })
+      .catch(err => {
+        console.error(err);
+        alert('An error occurred during generation.');
       })
       .finally(() => {
         btn.disabled = false;
@@ -1134,32 +1341,105 @@ session_start();
       });
     }
 
-    // Hardcode placement rosters
-    const rosterData = [
-      { name: 'Rohan Sharma', played: 14, acc: 88, rating: 'HIGH' },
-      { name: 'Neha Patil', played: 12, acc: 79, rating: 'HIGH' },
-      { name: 'Aditya Sen', played: 10, acc: 64, rating: 'MEDIUM' },
-      { name: 'Siddharth Joshi', played: 8, acc: 48, rating: 'LOW' }
-    ];
-    const tbody = document.getElementById('student-roster-body');
-    rosterData.forEach(stud => {
-      tbody.innerHTML += `
-        <tr class="h-10 hover:bg-slate-50 transition-colors">
-          <td class="font-semibold text-slate-808">${stud.name}</td>
-          <td class="font-mono text-slate-500">${stud.played}</td>
-          <td class="font-mono text-indigo-600 font-bold">${stud.acc}%</td>
-          <td>
-            <span class="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full ${
-              stud.rating === 'HIGH'
-                ? 'bg-green-50 text-green-600 border border-green-100'
-                : stud.rating === 'MEDIUM'
-                ? 'bg-amber-50 text-amber-600 border border-amber-100'
-                : 'bg-red-50 text-red-650 border border-red-100'
-            }">${stud.rating}</span>
-          </td>
-        </tr>
-      `;
-    });
+    // Leaderboard Modal Logic
+    let currentModalPin = '';
+
+    function openLeaderboardModal(pin, title) {
+      currentModalPin = pin;
+      document.getElementById('leaderboard-modal-title').innerText = title;
+      document.getElementById('leaderboard-modal-subtitle').innerText = 'Room PIN: ' + pin;
+      
+      const tbody = document.getElementById('leaderboard-modal-table-body');
+      tbody.innerHTML = `<tr><td colspan="6" class="text-slate-400 italic text-center py-8">Loading leaderboard data...</td></tr>`;
+      
+      showMainLeaderboardView();
+      document.getElementById('leaderboard-modal').classList.remove('hidden');
+      
+      fetch('api.php?action=get_detailed_leaderboard&pin_code=' + pin)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.leaderboard) {
+            tbody.innerHTML = '';
+            if (data.leaderboard.length === 0) {
+              tbody.innerHTML = `<tr><td colspan="6" class="text-slate-400 italic text-center py-8">No participant logs found.</td></tr>`;
+              return;
+            }
+            data.leaderboard.forEach(p => {
+              const row = document.createElement('tr');
+              row.className = 'hover:bg-slate-50 transition-colors cursor-pointer border-b border-slate-50';
+              row.onclick = () => loadStudentAnswers(p.name);
+              row.innerHTML = `
+                <td class="py-3 pl-4 font-bold text-slate-700">${p.rank}</td>
+                <td class="py-3 font-semibold text-slate-900 hover:text-indigo-650 transition-colors">${p.name}</td>
+                <td class="py-3 text-right font-mono text-indigo-650 font-bold">${p.points}</td>
+                <td class="py-3 text-right font-semibold text-slate-700">${p.correct} / ${p.total}</td>
+                <td class="py-3 text-right text-emerald-600 font-bold">${p.correct}</td>
+                <td class="py-3 text-right pr-4 font-mono text-slate-500">${p.solved}</td>
+              `;
+              tbody.appendChild(row);
+            });
+          } else {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-red-500 italic text-center py-8">${data.error || 'Failed to load leaderboard'}</td></tr>`;
+          }
+        });
+    }
+
+    function closeLeaderboardModal() {
+      document.getElementById('leaderboard-modal').classList.add('hidden');
+    }
+
+    function showMainLeaderboardView() {
+      document.getElementById('leaderboard-view-main').classList.remove('hidden');
+      document.getElementById('leaderboard-view-student').classList.add('hidden');
+    }
+
+    function loadStudentAnswers(username) {
+      document.getElementById('student-detail-header-name').innerText = username + "'s Response Details";
+      const tbody = document.getElementById('student-detail-table-body');
+      tbody.innerHTML = `<tr><td colspan="6" class="text-slate-400 italic text-center py-8">Loading history...</td></tr>`;
+      
+      document.getElementById('leaderboard-view-main').classList.add('hidden');
+      document.getElementById('leaderboard-view-student').classList.remove('hidden');
+
+      fetch('api.php?action=get_student_answers&pin_code=' + currentModalPin + '&username=' + encodeURIComponent(username))
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.history) {
+            tbody.innerHTML = '';
+            if (data.history.length === 0) {
+              tbody.innerHTML = `<tr><td colspan="6" class="text-slate-400 italic text-center py-8">No responses found.</td></tr>`;
+              return;
+            }
+            data.history.forEach(h => {
+              const statusBadge = h.is_correct 
+                ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200"><i data-lucide="check" class="w-3 h-3 mr-0.5"></i> Correct</span>`
+                : (h.student_answer === 'Unanswered'
+                    ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-slate-50 text-slate-400 border border-slate-200"><i data-lucide="minus" class="w-3 h-3 mr-0.5"></i> Unanswered</span>`
+                    : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200"><i data-lucide="x" class="w-3 h-3 mr-0.5"></i> Wrong</span>`
+                  );
+
+              const timeStr = h.time_ms > 0 ? (h.time_ms / 1000).toFixed(1) + 's' : '-';
+
+              const row = document.createElement('tr');
+              row.className = 'border-b border-slate-50 text-slate-805';
+              row.innerHTML = `
+                <td class="py-3 pl-4 font-medium max-w-xs truncate" title="${h.question}">${h.question}</td>
+                <td class="py-3 font-semibold text-slate-800">${h.student_answer}</td>
+                <td class="py-3 text-indigo-700 font-semibold">${h.correct_answer}</td>
+                <td class="py-3 text-center">${statusBadge}</td>
+                <td class="py-3 text-right font-mono font-bold text-slate-700">${h.points}</td>
+                <td class="py-3 text-right pr-4 font-mono text-slate-500">${timeStr}</td>
+              `;
+              tbody.appendChild(row);
+            });
+            lucide.createIcons();
+          } else {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-red-500 italic text-center py-8">${data.error || 'Failed to load details'}</td></tr>`;
+          }
+        });
+    }
+
+    // Hardcode placement rosters removed
 
     // Admin Auth & Dash Logic
     let isAdmin = false;
@@ -1284,10 +1564,13 @@ session_start();
                   <span>PIN: <span class="text-indigo-650">${s.pin_code}</span></span>
                   <span>Q-Index: ${s.current_question_index}</span>
                 </div>
-                <div class="bg-slate-50 rounded-lg border border-slate-100 p-4">
+                <div class="bg-slate-50 rounded-lg border border-slate-100 p-4 animate-none">
                   <h4 class="text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-wider flex items-center gap-1.5"><i data-lucide="award" class="w-3.5 h-3.5"></i> Top Standings</h4>
                   ${leaders || '<p class="text-xs text-slate-500 italic">No participants yet</p>'}
                 </div>
+                <button onclick="openLeaderboardModal('${s.pin_code}', '${s.quiz_title.replace(/'/g, "\\'")}')" class="mt-4 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-770 font-bold py-2.5 px-4 rounded-xl border border-indigo-200 text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm">
+                  <i data-lucide="list-ordered" class="w-4 h-4"></i> View Detailed Leaderboard
+                </button>
               </div>
             `;
           });

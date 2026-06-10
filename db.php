@@ -60,6 +60,12 @@ try {
     try {
         $pdo->exec("ALTER TABLE quiz_sessions ADD COLUMN music_enabled INTEGER DEFAULT 1");
     } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quiz_sessions ADD COLUMN is_paused INTEGER DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quiz_sessions ADD COLUMN paused_time_left INTEGER DEFAULT NULL");
+    } catch (PDOException $e) {}
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS session_participants (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

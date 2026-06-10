@@ -34,6 +34,8 @@ try {
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- HTML2Canvas -->
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     body {
         background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
@@ -91,8 +93,8 @@ try {
     <!-- LOBBY WAITING SCREEN -->
     <div id="panel-LOBBY" class="w-full max-w-lg text-center space-y-4">
       <div class="p-10 rounded-[2rem] glass-panel space-y-6">
-        <div class="w-20 h-20 rounded-3xl bg-indigo-100 text-indigo-600 border border-indigo-200 flex items-center justify-center mx-auto mb-2 animate-bounce shadow-lg">
-          <i data-lucide="sparkles" class="w-10 h-10 text-indigo-600"></i>
+        <div class="w-20 h-20 rounded-3xl bg-white border border-slate-200 flex items-center justify-center mx-auto mb-2 animate-bounce shadow-lg p-2">
+          <img src="assets/logo.png" alt="TechnoQuiz Logo" class="w-16 h-16 object-contain" />
         </div>
         <h2 class="font-sans text-3xl font-black text-slate-900 tracking-tight">You're In, <?php echo htmlspecialchars($username); ?>!</h2>
         <p class="text-slate-600 text-md font-medium px-4">
@@ -128,22 +130,14 @@ try {
         <!-- Text confirmed -->
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="flex justify-center w-full">
         <!-- Explanations panel -->
-        <div class="p-8 glass-panel rounded-[2rem] space-y-4 text-left">
+        <div class="w-full max-w-2xl p-8 glass-panel rounded-[2rem] space-y-4 text-left shadow-lg">
           <h3 class="flex items-center gap-2 font-sans font-black text-indigo-700 text-xl">
             <i data-lucide="sparkles" class="w-6 h-6 text-cyan-600"></i>
             Explanation
           </h3>
           <p class="text-slate-700 text-md leading-relaxed font-medium" id="explanation-text">...</p>
-        </div>
-
-        <!-- Leaderboard ranks -->
-        <div class="p-8 glass-panel rounded-[2rem] space-y-5 text-left">
-          <h3 class="font-sans font-black text-slate-900 text-xl">Top Standings</h3>
-          <div class="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar" id="ranking-list-box">
-            <!-- Rankings row -->
-          </div>
         </div>
       </div>
     </div>
@@ -162,22 +156,15 @@ try {
             <!-- Dynamic Podium -->
         </div>
 
-        <!-- Top 10 Leaderboard & Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-8">
-            <div class="col-span-1 md:col-span-2 winner-glass p-8 rounded-[2rem]">
-                <h3 class="text-2xl font-bold text-white mb-6 flex items-center gap-3"><i data-lucide="award" class="text-yellow-400"></i> Top 10 Leaderboard</h3>
-                <div class="space-y-3" id="final-top10-box">
-                    <!-- Top 10 list -->
-                </div>
+        <!-- Actions & Stats -->
+        <div class="flex flex-col md:flex-row items-center justify-center gap-6 w-full mt-8">
+            <div class="winner-glass p-8 rounded-[2rem] text-center flex flex-col justify-center items-center min-w-[250px]">
+                <div class="text-5xl font-black text-white mb-2" id="final-total-participants">0</div>
+                <div class="text-indigo-300 font-bold uppercase tracking-widest text-sm">Total Players</div>
             </div>
             
-            <div class="col-span-1 space-y-6">
-                <div class="winner-glass p-8 rounded-[2rem] text-center flex flex-col justify-center items-center h-48">
-                    <div class="text-5xl font-black text-white mb-2" id="final-total-participants">0</div>
-                    <div class="text-indigo-300 font-bold uppercase tracking-widest text-sm">Total Players</div>
-                </div>
-                
-                <button onclick="exitArena()" class="w-full bg-white text-slate-900 hover:bg-indigo-50 font-black py-5 rounded-[1.5rem] text-lg flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.3)]">
+            <div class="flex flex-col gap-4 min-w-[250px]" id="winner-actions-box">
+                <button onclick="exitArena()" class="w-full bg-white text-slate-900 hover:bg-indigo-50 font-black py-5 px-8 rounded-[1.5rem] text-lg flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.3)]">
                   <i data-lucide="home" class="w-5 h-5"></i> Return to Home
                 </button>
             </div>
@@ -187,6 +174,24 @@ try {
     </div>
 
   </main>
+
+  <!-- Hidden Winner Card Template -->
+  <div id="winner-card-template" class="hidden fixed top-0 left-0 bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-8 rounded-3xl w-[600px] h-[800px] flex-col items-center justify-center z-[-1] shadow-2xl border-4 border-indigo-500/50">
+      <div class="text-center mb-8">
+          <img src="assets/logo.png" alt="TechnoQuiz" class="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
+          <h2 class="text-3xl font-black tracking-wider text-indigo-300 uppercase">TechnoQuiz Arena</h2>
+      </div>
+      <div class="text-[120px] leading-none mb-4 drop-shadow-[0_0_30px_rgba(255,215,0,0.8)]" id="card-trophy">🏆</div>
+      <div class="text-4xl font-black mb-2 text-yellow-400 uppercase tracking-widest" id="card-rank">1st Place</div>
+      <div class="text-6xl font-black mb-6 text-white text-center w-full truncate px-8" id="card-name">Student Name</div>
+      <div class="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 w-full max-w-md mx-auto text-center">
+          <p class="text-xl text-indigo-200 font-bold uppercase tracking-widest mb-2">Final Score</p>
+          <p class="text-6xl font-black text-white font-mono" id="card-score">0</p>
+      </div>
+      <div class="mt-auto text-center text-sm font-bold text-slate-400 tracking-widest">
+          VERIFIED TOURNAMENT RESULT
+      </div>
+  </div>
 
   <!-- Footer -->
   <footer id="main-footer" class="text-center text-sm font-semibold text-slate-400 pt-6 pb-2 max-w-7xl mx-auto w-full z-10 relative transition-all duration-500">
@@ -240,13 +245,22 @@ try {
             updateActiveQuestion(data);
           }
 
-          // Active Timer updates
           if (data.status === 'ACTIVE_QUESTION') {
-            document.getElementById('countdown-text').innerText = `${data.time_left}s Left`;
-            if (!answerLocked) {
-              sound.playCountdown(data.time_left, data.current_question_index);
-            } else {
+            if (data.already_answered) {
+              answerLocked = true;
+              showLockedScreen({is_correct: true});
               sound.stopKBCMusic();
+            }
+            if (data.is_paused === 1) {
+              document.getElementById('countdown-text').innerText = `[Paused] ${data.time_left}s Left`;
+              sound.stopKBCMusic();
+            } else {
+              document.getElementById('countdown-text').innerText = `${data.time_left}s Left`;
+              if (!answerLocked && !data.already_answered) {
+                sound.playCountdown(data.time_left, data.current_question_index);
+              } else {
+                sound.stopKBCMusic();
+              }
             }
           }
         });
@@ -332,9 +346,51 @@ try {
     }
 
     // Input render helpers
+    let selectedOptionId = null;
+    let autoSubmit = localStorage.getItem('auto_submit') !== 'false';
+
+    function toggleAutoSubmit(checked) {
+      autoSubmit = checked;
+      localStorage.setItem('auto_submit', checked ? 'true' : 'false');
+      pollLobby();
+    }
+
+    function selectOption(optId, btnIndex) {
+      if (answerLocked) return;
+      selectedOptionId = optId;
+
+      const buttons = document.querySelectorAll('#options-grid button');
+      buttons.forEach((b) => {
+        b.className = `p-6 md:p-8 rounded-[1.5rem] border backdrop-blur-sm text-left font-bold text-lg md:text-xl transition-all duration-300 transform active:scale-95 cursor-pointer flex items-center bg-white/80 hover:bg-white border-white/50 text-slate-800 shadow-md hover:shadow-xl`;
+      });
+
+      const selectedBtn = document.getElementById('opt-btn-' + btnIndex);
+      if (selectedBtn) {
+        selectedBtn.className = `p-6 md:p-8 rounded-[1.5rem] border backdrop-blur-sm text-left font-bold text-lg md:text-xl transition-all duration-300 transform active:scale-95 cursor-pointer flex items-center bg-indigo-600 text-white border-indigo-750 shadow-xl ring-4 ring-indigo-500/20 scale-102`;
+      }
+
+      if (autoSubmit) {
+        submitAnswer(optId);
+      } else {
+        const submitBtn = document.getElementById('btn-submit-answer');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+          submitBtn.classList.add('hover:bg-indigo-700', 'cursor-pointer');
+        }
+      }
+    }
+
+    function submitManualAnswer() {
+      if (selectedOptionId !== null) {
+        submitAnswer(selectedOptionId);
+      }
+    }
+
     function renderQuestionInputs(q) {
       const box = document.getElementById('inputs-box');
       box.innerHTML = '';
+      selectedOptionId = null;
 
       if (q.type !== 'CODING_CHALLENGE') {
         const colors = [
@@ -344,10 +400,28 @@ try {
           'bg-white/80 hover:bg-white border-white/50 text-slate-800 shadow-md hover:shadow-xl'
         ];
         
+        let submitBtnHtml = '';
+        if (!autoSubmit) {
+          submitBtnHtml = `
+            <div class="mt-6">
+              <button id="btn-submit-answer" onclick="submitManualAnswer()" disabled class="w-full bg-indigo-600 text-white opacity-50 font-black py-4 rounded-[1.5rem] text-lg transition-all shadow-lg cursor-not-allowed transform active:scale-95 flex items-center justify-center gap-2">
+                <i data-lucide="send" class="w-5 h-5"></i> Submit Answer
+              </button>
+            </div>
+          `;
+        }
+
         box.innerHTML = `
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div class="flex items-center justify-between px-2 mb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <span class="flex items-center gap-1.5"><i data-lucide="list" class="w-3.5 h-3.5"></i> Select Option</span>
+            <label class="flex items-center gap-2 cursor-pointer select-none text-slate-500 hover:text-slate-700 transition-colors">
+              <input type="checkbox" onchange="toggleAutoSubmit(this.checked)" ${autoSubmit ? 'checked' : ''} class="accent-indigo-650 h-4 w-4 cursor-pointer" />
+              <span>Auto-Submit on Click</span>
+            </label>
+          </div>
+          <div id="options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             ${q.options.map((opt, idx) => `
-              <button onclick="submitAnswer(${opt.id})" class="p-6 md:p-8 rounded-[1.5rem] border backdrop-blur-sm text-left font-bold text-lg md:text-xl transition-all duration-300 transform active:scale-95 cursor-pointer flex items-center ${colors[idx % colors.length]}">
+              <button id="opt-btn-${idx}" onclick="selectOption(${opt.id}, ${idx})" class="p-6 md:p-8 rounded-[1.5rem] border backdrop-blur-sm text-left font-bold text-lg md:text-xl transition-all duration-300 transform active:scale-95 cursor-pointer flex items-center ${colors[idx % colors.length]}">
                 <span class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-100 text-indigo-700 font-black text-xl mr-4 shadow-inner">
                   ${String.fromCharCode(65 + idx)}
                 </span>
@@ -355,6 +429,7 @@ try {
               </button>
             `).join('')}
           </div>
+          ${submitBtnHtml}
         `;
       } else {
         box.innerHTML = `
@@ -367,6 +442,7 @@ try {
           </div>
         `;
       }
+      lucide.createIcons();
     }
 
     // Lock Submit screen
@@ -473,9 +549,7 @@ try {
 
           document.getElementById('explanation-text').innerText = data.explanation;
 
-          // Rankings
-          const ranksBox = document.getElementById('ranking-list-box');
-          ranksBox.innerHTML = `<p class="text-slate-500 font-semibold italic text-center py-4">Look at the presenter screen for full live rankings!</p>`;
+          // Rankings (removed)
           lucide.createIcons();
         });
     }
@@ -539,26 +613,52 @@ try {
                 `;
             }
 
-            // 2. Top 10 Box
-            const top10 = rankings.slice(0, 10);
-            const box = document.getElementById('final-top10-box');
-            box.innerHTML = top10.map((r, idx) => {
-                let colorClass = "text-white";
-                let rankLabel = `#${idx + 1}`;
-                if (idx === 0) { colorClass = "rank-1 font-black text-xl"; rankLabel = "🥇"; }
-                else if (idx === 1) { colorClass = "rank-2 font-bold text-lg"; rankLabel = "🥈"; }
-                else if (idx === 2) { colorClass = "rank-3 font-bold text-lg"; rankLabel = "🥉"; }
+            // 2. Winner Card logic
+            const actionsBox = document.getElementById('winner-actions-box');
+            if (myRankIndex >= 0 && myRankIndex < 3) {
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = "w-full bg-indigo-600 text-white hover:bg-indigo-700 font-black py-4 px-6 rounded-[1.5rem] text-lg flex items-center justify-center gap-3 transition-all shadow-[0_0_20px_rgba(79,70,229,0.5)] transform hover:scale-105";
+                downloadBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i> Download Winner Card`;
+                downloadBtn.onclick = () => downloadWinnerCard(rankings[myRankIndex], myRankIndex + 1);
+                actionsBox.prepend(downloadBtn);
+                lucide.createIcons();
+            }
+        });
+    }
 
-                return `
-                <div class="flex justify-between items-center py-3 border-b border-white/10 last:border-0">
-                    <div class="flex items-center gap-4">
-                        <span class="w-8 text-center text-xl">${rankLabel}</span>
-                        <span class="${colorClass} ${idx > 2 ? 'font-semibold' : ''}">${r.name}</span>
-                    </div>
-                    <div class="font-mono font-bold text-indigo-300">${r.score} pts</div>
-                </div>
-                `;
-            }).join('');
+    function downloadWinnerCard(data, rank) {
+        const template = document.getElementById('winner-card-template');
+        template.classList.remove('hidden');
+        template.classList.add('flex');
+        
+        document.getElementById('card-name').innerText = data.name;
+        document.getElementById('card-score').innerText = data.score;
+        
+        if (rank === 1) {
+            document.getElementById('card-trophy').innerText = '🏆';
+            document.getElementById('card-rank').innerText = '1st Place';
+            document.getElementById('card-rank').className = 'text-4xl font-black mb-2 text-yellow-400 uppercase tracking-widest';
+        } else if (rank === 2) {
+            document.getElementById('card-trophy').innerText = '🥈';
+            document.getElementById('card-rank').innerText = '2nd Place';
+            document.getElementById('card-rank').className = 'text-4xl font-black mb-2 text-slate-300 uppercase tracking-widest';
+        } else if (rank === 3) {
+            document.getElementById('card-trophy').innerText = '🥉';
+            document.getElementById('card-rank').innerText = '3rd Place';
+            document.getElementById('card-rank').className = 'text-4xl font-black mb-2 text-amber-600 uppercase tracking-widest';
+        }
+
+        html2canvas(template, {
+            scale: 2,
+            backgroundColor: '#0f172a'
+        }).then(canvas => {
+            template.classList.add('hidden');
+            template.classList.remove('flex');
+            
+            const link = document.createElement('a');
+            link.download = `technoquiz-winner-${data.name}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
         });
     }
 

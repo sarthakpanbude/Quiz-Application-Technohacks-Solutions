@@ -72,54 +72,67 @@
   <main class="flex-grow w-full mx-auto flex items-center justify-center z-10 relative">
 
     <!-- LOBBY DISPLAY VIEW -->
-    <div id="panel-LOBBY" class="w-full max-w-3xl text-center space-y-6">
-      <div class="p-10 rounded-[2rem] glass-panel space-y-8 shadow-xl relative bg-white/60">
-        <div class="space-y-3">
-          <p class="text-xs text-slate-500 uppercase font-black tracking-widest">Join at TechnoQuiz Arena</p>
-          <div class="inline-block px-12 py-6 bg-white border border-slate-200 rounded-[2rem] shadow-sm">
-            <h1 class="font-sans text-6xl md:text-8xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-cyan-500" id="lobby-pin-display">
-                ------
-            </h1>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-center gap-2 text-slate-700 font-bold text-lg bg-slate-100/50 py-3 rounded-xl border border-slate-200">
-          <i data-lucide="users" class="w-6 h-6 text-indigo-600"></i>
-          <span><span id="lobby-count" class="text-indigo-600 text-2xl font-black mx-2">0</span> Players Joined</span>
-        </div>
-
-        <div id="lobby-players-box" class="flex flex-wrap gap-3 justify-center max-h-48 overflow-y-auto p-6 rounded-2xl bg-white border border-slate-200 shadow-inner">
-          <p class="text-sm text-slate-400 font-medium">Waiting for players to join...</p>
-        </div>
-
-        <!-- Quiz Settings Section -->
-        <div class="border-t border-slate-200 pt-6 text-left space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="space-y-2">
-              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Time Per Question</label>
-              <select id="setting-duration" onchange="updateLobbySettings()" class="w-full bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-bold shadow-sm cursor-pointer">
-                <option value="default">Default Quiz Duration</option>
-                <option value="5">5 Seconds</option>
-                <option value="10">10 Seconds</option>
-                <option value="20">20 Seconds</option>
-                <option value="30">30 Seconds</option>
-                <option value="45">45 Seconds</option>
-                <option value="60">60 Seconds</option>
-              </select>
+    <div id="panel-LOBBY" class="w-full max-w-5xl space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+        
+        <!-- Left Side: Joined Participants -->
+        <div class="md:col-span-5 p-8 rounded-[2rem] glass-panel flex flex-col justify-between shadow-xl bg-white/60">
+          <div class="space-y-4 flex-grow flex flex-col text-left">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 class="text-slate-805 font-black text-lg flex items-center gap-2">
+                <i data-lucide="users" class="w-5 h-5 text-indigo-600"></i> Participants
+              </h3>
+              <span class="bg-indigo-100 text-indigo-700 font-black px-3 py-1 rounded-xl text-sm" id="lobby-count">0</span>
             </div>
-            <div class="space-y-2">
-              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Background Music</label>
-              <select id="setting-music" onchange="updateLobbySettings()" class="w-full bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-bold shadow-sm cursor-pointer">
-                <option value="1">Music On 🔊</option>
-                <option value="0">Music Off 🔇</option>
-              </select>
+            <div id="lobby-players-box" class="flex flex-wrap gap-2.5 content-start overflow-y-auto max-h-[350px] p-2 flex-grow mt-3">
+              <p class="text-sm text-slate-400 font-medium italic">Waiting for candidates to join room...</p>
             </div>
           </div>
         </div>
 
-        <button onclick="startQuiz()" id="start-btn" disabled class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-[1.5rem] text-lg flex items-center justify-center gap-3 transition-all cursor-pointer disabled:opacity-50 shadow-lg transform active:scale-95">
-          <i data-lucide="play" class="w-6 h-6 fill-white"></i> START LIVE QUIZ
-        </button>
+        <!-- Right Side: PIN & Controls -->
+        <div class="md:col-span-7 p-8 rounded-[2rem] glass-panel space-y-6 shadow-xl bg-white/60 flex flex-col justify-between">
+          <div class="space-y-6 text-center md:text-left">
+            <div class="space-y-2 text-center">
+              <p class="text-xs text-slate-500 uppercase font-black tracking-widest">Join at TechnoQuiz Arena</p>
+              <div class="inline-block px-8 py-4 bg-white border border-slate-200 rounded-[1.5rem] shadow-sm">
+                <h1 class="font-sans text-5xl md:text-6xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-cyan-500" id="lobby-pin-display">
+                    ------
+                </h1>
+              </div>
+            </div>
+
+            <!-- Quiz Settings Section -->
+            <div class="border-t border-slate-200 pt-4 space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Time Per Question</label>
+                  <select id="setting-duration" onchange="updateLobbySettings()" class="w-full bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-bold shadow-sm cursor-pointer">
+                    <option value="default">Default Quiz Duration</option>
+                    <option value="5">5 Seconds</option>
+                    <option value="10">10 Seconds</option>
+                    <option value="20">20 Seconds</option>
+                    <option value="30">30 Seconds</option>
+                    <option value="45">45 Seconds</option>
+                    <option value="60">60 Seconds</option>
+                  </select>
+                </div>
+                <div class="space-y-2">
+                  <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Background Music</label>
+                  <select id="setting-music" onchange="updateLobbySettings()" class="w-full bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl p-3 text-slate-800 text-sm font-bold shadow-sm cursor-pointer">
+                    <option value="1">Music On 🔊</option>
+                    <option value="0">Music Off 🔇</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button onclick="startQuiz()" id="start-btn" disabled class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-[1.5rem] text-lg flex items-center justify-center gap-3 transition-all cursor-pointer disabled:opacity-50 shadow-lg transform active:scale-95 mt-4">
+            <i data-lucide="play" class="w-6 h-6 fill-white"></i> START LIVE QUIZ
+          </button>
+        </div>
+        
       </div>
     </div>
 
@@ -138,7 +151,7 @@
           <div class="glass-panel p-4 rounded-2xl flex items-center gap-4">
               <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><i data-lucide="users"></i></div>
               <div>
-                  <p class="text-[10px] uppercase font-bold text-slate-500">Total Players</p>
+                  <p class="text-[10px] uppercase font-bold text-slate-500">Total Participants</p>
                   <p class="text-xl font-black text-slate-800" id="dash-total-players">0</p>
               </div>
           </div>
@@ -156,7 +169,19 @@
           </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Live Quiz Controls -->
+      <div class="flex gap-4 items-center justify-center bg-white/50 border border-slate-200/50 p-4 rounded-2xl shadow-sm">
+        <button id="btn-pause" onclick="pauseQuiz()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-xl text-sm flex items-center gap-2 transition-all cursor-pointer shadow-md transform active:scale-95">
+          <i data-lucide="pause" class="w-4 h-4"></i> Pause Quiz
+        </button>
+        <button id="btn-resume" onclick="resumeQuiz()" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl text-sm flex items-center gap-2 transition-all cursor-pointer shadow-md transform active:scale-95">
+          <i data-lucide="play" class="w-4 h-4"></i> Resume Quiz
+        </button>
+        <button onclick="skipQuestion()" class="bg-slate-700 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-xl text-sm flex items-center gap-2 transition-all cursor-pointer shadow-md transform active:scale-95">
+          <i data-lucide="skip-forward" class="w-4 h-4"></i> Skip Question
+        </button>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
         <!-- Center Left: Live Progress Tracker -->
         <div class="lg:col-span-2 space-y-6">
             <div class="p-8 rounded-[2rem] glass-panel shadow-sm flex flex-col h-full min-h-[500px]">
@@ -241,15 +266,20 @@
                 </div>
             </div>
             
-            <div class="col-span-1 space-y-6">
-                <div class="winner-glass p-8 rounded-[2rem] text-center flex flex-col justify-center items-center h-48">
+            <div class="col-span-1 flex flex-col gap-6">
+                <div class="winner-glass p-8 rounded-[2rem] text-center flex flex-col justify-center items-center flex-grow">
                     <div class="text-5xl font-black text-white mb-2" id="final-total-participants">0</div>
                     <div class="text-indigo-300 font-bold uppercase tracking-widest text-sm">Total Players</div>
                 </div>
                 
-                <button onclick="exitPresenter()" class="w-full bg-white text-slate-900 hover:bg-indigo-50 font-black py-5 rounded-[1.5rem] text-lg flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.3)]">
-                  <i data-lucide="power" class="w-5 h-5"></i> End Live Session
-                </button>
+                <div class="flex flex-col gap-4">
+                    <button onclick="exportResults()" class="w-full bg-indigo-600 text-white hover:bg-indigo-700 font-black py-4 px-6 rounded-[1.5rem] text-lg flex items-center justify-center gap-3 transition-all shadow-[0_0_20px_rgba(79,70,229,0.5)] transform hover:scale-105">
+                      <i data-lucide="download" class="w-5 h-5"></i> Export Results
+                    </button>
+                    <button onclick="exitPresenter()" class="w-full bg-white text-slate-900 hover:bg-indigo-50 font-black py-4 px-6 rounded-[1.5rem] text-lg flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.3)]">
+                      <i data-lucide="power" class="w-5 h-5"></i> End Live Session
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -452,11 +482,19 @@
 
     // Active Question Helpers
     function refreshActiveQuestion(data) {
-      // Session Time Elapsed Count-Up Timer in the header
-      const elapsed = data.active_question_start ? (Math.floor(Date.now() / 1000) - data.active_question_start) : 0;
-      const mins = String(Math.floor(Math.max(0, elapsed) / 60)).padStart(2, '0');
-      const secs = String(Math.max(0, elapsed) % 60).padStart(2, '0');
-      document.getElementById('countdown-text').innerText = `Elapsed: ${mins}:${secs}`;
+      // Session Time Elapsed Count-Up Timer in the header / pausing controls
+      if (data.is_paused === 1) {
+        document.getElementById('countdown-text').innerText = `Elapsed: Paused`;
+        document.getElementById('btn-pause').classList.add('hidden');
+        document.getElementById('btn-resume').classList.remove('hidden');
+      } else {
+        const elapsed = data.active_question_start ? (Math.floor(Date.now() / 1000) - data.active_question_start) : 0;
+        const mins = String(Math.floor(Math.max(0, elapsed) / 60)).padStart(2, '0');
+        const secs = String(Math.max(0, elapsed) % 60).padStart(2, '0');
+        document.getElementById('countdown-text').innerText = `Elapsed: ${mins}:${secs}`;
+        document.getElementById('btn-pause').classList.remove('hidden');
+        document.getElementById('btn-resume').classList.add('hidden');
+      }
 
       // Fetch Telemetry Admin Dashboard data
       fetch('api.php?action=get_telemetry&pin_code=' + pin)
@@ -568,18 +606,20 @@
 
           // Rankings lists
           const ranksBox = document.getElementById('ranking-list-box');
-          ranksBox.innerHTML = data.leaderboard.map((row, idx) => `
-            <div class="flex justify-between items-center p-4 rounded-2xl bg-white border border-slate-100 shadow-sm mb-2">
-              <div class="flex items-center gap-4">
-                <span class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-black text-sm">#${idx + 1}</span>
-                <span class="text-md font-bold text-slate-800">${row.name}</span>
+          if (ranksBox) {
+            ranksBox.innerHTML = data.leaderboard.map((row, idx) => `
+              <div class="flex justify-between items-center p-4 rounded-2xl bg-white border border-slate-100 shadow-sm mb-2">
+                <div class="flex items-center gap-4">
+                  <span class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-black text-sm">#${idx + 1}</span>
+                  <span class="text-md font-bold text-slate-805">${row.name}</span>
+                </div>
+                <div class="flex items-center gap-4">
+                  ${row.streak > 1 ? `<span class="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-lg font-bold">🔥 ${row.streak} Streak</span>` : ''}
+                  <span class="text-lg font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-xl">${row.score} pts</span>
+                </div>
               </div>
-              <div class="flex items-center gap-4">
-                ${row.streak > 1 ? `<span class="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-lg font-black">🔥 ${row.streak} Streak</span>` : ''}
-                <span class="text-lg font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-xl">${row.score} pts</span>
-              </div>
-            </div>
-          `).join('');
+            `).join('');
+          }
           lucide.createIcons();
         });
     }
@@ -637,23 +677,25 @@
             // 2. Top 10 Box
             const top10 = rankings.slice(0, 10);
             const box = document.getElementById('final-top10-box');
-            box.innerHTML = top10.map((r, idx) => {
-                let colorClass = "text-white";
-                let rankLabel = `#${idx + 1}`;
-                if (idx === 0) { colorClass = "rank-1 font-black text-xl"; rankLabel = "🥇"; }
-                else if (idx === 1) { colorClass = "rank-2 font-bold text-lg"; rankLabel = "🥈"; }
-                else if (idx === 2) { colorClass = "rank-3 font-bold text-lg"; rankLabel = "🥉"; }
+            if (box) {
+                box.innerHTML = top10.map((r, idx) => {
+                    let colorClass = "text-white";
+                    let rankLabel = `#${idx + 1}`;
+                    if (idx === 0) { colorClass = "rank-1 font-black text-xl"; rankLabel = "🥇"; }
+                    else if (idx === 1) { colorClass = "rank-2 font-bold text-lg"; rankLabel = "🥈"; }
+                    else if (idx === 2) { colorClass = "rank-3 font-bold text-lg"; rankLabel = "🥉"; }
 
-                return `
-                <div class="flex justify-between items-center py-3 border-b border-white/10 last:border-0">
-                    <div class="flex items-center gap-4">
-                        <span class="w-8 text-center text-xl">${rankLabel}</span>
-                        <span class="${colorClass} ${idx > 2 ? 'font-semibold' : ''}">${r.name}</span>
+                    return `
+                    <div class="flex justify-between items-center py-3 border-b border-white/10 last:border-0">
+                        <div class="flex items-center gap-4">
+                            <span class="w-8 text-center text-xl">${rankLabel}</span>
+                            <span class="${colorClass}">${r.name}</span>
+                        </div>
+                        <span class="font-bold text-indigo-300 font-mono">${r.score} pts</span>
                     </div>
-                    <div class="font-mono font-bold text-indigo-300">${r.score} pts</div>
-                </div>
-                `;
-            }).join('');
+                    `;
+                }).join('');
+            }
         });
     }
 
@@ -675,6 +717,28 @@
       const fd = new FormData();
       fd.append('pin_code', pin);
       fetch('api.php?action=next_question', { method: 'POST', body: fd });
+    }
+
+    function pauseQuiz() {
+      const fd = new FormData();
+      fd.append('pin_code', pin);
+      fetch('api.php?action=pause_quiz', { method: 'POST', body: fd });
+    }
+
+    function resumeQuiz() {
+      const fd = new FormData();
+      fd.append('pin_code', pin);
+      fetch('api.php?action=resume_quiz', { method: 'POST', body: fd });
+    }
+
+    function skipQuestion() {
+      const fd = new FormData();
+      fd.append('pin_code', pin);
+      fetch('api.php?action=skip_question', { method: 'POST', body: fd });
+    }
+
+    function exportResults() {
+      window.open('api.php?action=export_results&pin_code=' + pin, '_blank');
     }
 
     function exitPresenter() {
