@@ -330,6 +330,17 @@ try {
             $response = ['success' => true];
             break;
 
+        case 'delete_quiz':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $quizId = intval($_POST['quiz_id'] ?? 0);
+            $stmt = $pdo->prepare("DELETE FROM quizzes WHERE id = ?");
+            $stmt->execute([$quizId]);
+            $response = ['success' => true];
+            break;
+
         case 'host_session':
             $quizId = $_POST['quiz_id'] ?? $_GET['quiz_id'] ?? '';
             $pin = $_POST['pin_code'] ?? $_GET['pin_code'] ?? '';
@@ -1000,6 +1011,33 @@ try {
             ];
             break;
 
+        case 'get_recent_winners':
+            $stmt = $pdo->query("
+                SELECT 
+                    sp.username, 
+                    sp.score, 
+                    sp.streak, 
+                    q.title AS quiz_title, 
+                    qs.pin_code,
+                    qs.created_at,
+                    (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) AS total_questions,
+                    (SELECT COUNT(*) FROM session_responses sr WHERE sr.participant_id = sp.id AND sr.is_correct = 1) AS correct_answers
+                FROM session_participants sp
+                JOIN quiz_sessions qs ON sp.session_id = qs.id
+                JOIN quizzes q ON qs.quiz_id = q.id
+                WHERE qs.status = 'FINISHED'
+                AND sp.score = (
+                    SELECT MAX(score) 
+                    FROM session_participants 
+                    WHERE session_id = qs.id
+                )
+                ORDER BY qs.id DESC
+                LIMIT 15
+            ");
+            $winners = $stmt->fetchAll();
+            $response = ['success' => true, 'winners' => $winners];
+            break;
+
         case 'get_podium':
             $pin = $_GET['pin_code'] ?? '';
             $stmtS = $pdo->prepare("SELECT id FROM quiz_sessions WHERE pin_code = ?");
@@ -1030,7 +1068,7 @@ try {
             break;
 
         case 'get_live_sessions':
-            $stmtS = $pdo->query("SELECT qs.id, qs.pin_code, qs.status, qs.quiz_id, qs.current_question_index, qs.active_question_start, q.title, q.time_limit, qs.created_at FROM quiz_sessions qs JOIN quizzes q ON q.id = qs.quiz_id WHERE qs.status IN ('LOBBY', 'ACTIVE_QUESTION', 'SHOWING_LEADERBOARD') ORDER BY qs.id DESC");
+            $stmtS = $pdo->query("SELECT qs.id, qs.pin_code, qs.status, qs.quiz_id, qs.current_question_index, qs.active_question_start, q.title, q.time_limit, qs.updated_at FROM quiz_sessions qs JOIN quizzes q ON q.id = qs.quiz_id WHERE qs.status IN ('LOBBY', 'ACTIVE_QUESTION', 'SHOWING_LEADERBOARD') ORDER BY qs.id DESC");
             $live = [];
             while ($row = $stmtS->fetch()) {
                 $sessionId = $row['id'];
@@ -1147,7 +1185,7 @@ try {
             $audioFiles = [];
             foreach ($files as $file) {
                 $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-                if (in_array($ext, ['mp3', 'wav', 'ogg'])) {
+                if (in_array($ext, ['mp3', 'wav', 'ogg', 'webm'])) {
                     $audioFiles[] = [
                         'name' => $file,
                         'path' => 'assets/audio/' . $file,
@@ -1174,8 +1212,8 @@ try {
                 break;
             }
             $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            if (!in_array($ext, ['mp3', 'wav', 'ogg'])) {
-                $response = ['error' => 'Invalid format (only mp3, wav, ogg allowed)'];
+            if (!in_array($ext, ['mp3', 'wav', 'ogg', 'webm'])) {
+                $response = ['error' => 'Invalid format (only mp3, wav, ogg, webm allowed)'];
                 break;
             }
             $safeName = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $file['name']);
@@ -1190,11 +1228,16 @@ try {
             }
 
             if (move_uploaded_file($file['tmp_name'], $dest)) {
-                $response = ['success' => true, 'file' => [
-                    'name' => $safeName,
-                    'path' => 'assets/audio/' . $safeName,
-                    'url' => 'assets/audio/' . rawurlencode($safeName)
-                ], 'file_path' => 'assets/audio/' . $safeName, 'file_name' => $safeName];
+                $response = [
+                    'success' => true, 
+                    'file' => [
+                        'name' => $safeName,
+                        'path' => 'assets/audio/' . $safeName,
+                        'url' => 'assets/audio/' . rawurlencode($safeName)
+                    ], 
+                    'file_path' => 'assets/audio/' . $safeName, 
+                    'file_name' => $safeName
+                ];
             } else {
                 $response = ['error' => 'Could not save file'];
             }
@@ -1205,36 +1248,68 @@ try {
                 $response = ['error' => 'Unauthorized'];
                 break;
             }
-            $oldPath = $_POST['old_path'] ?? '';
-            $newName = $_POST['new_name'] ?? '';
-            if (!$oldPath || !$newName) {
-                $response = ['error' => 'Missing parameters'];
+            $input = json_decode(file_get_contents('php://input'), true);
+            $filePath = trim($input['file_path'] ?? '');
+            $newName = trim($input['new_name'] ?? '');
+
+            if (empty($filePath) || empty($newName)) {
+                $response = ['error' => 'File path and new name are required'];
                 break;
             }
-            $oldFile = __DIR__ . '/' . ltrim($oldPath, '/');
-            if (strpos(realpath($oldFile), realpath(__DIR__ . '/assets/audio/')) !== 0) {
-                $response = ['error' => 'Invalid path'];
+
+            $baseName = basename($filePath);
+            $oldPath = __DIR__ . '/assets/audio/' . $baseName;
+            if (!file_exists($oldPath) || !is_file($oldPath)) {
+                $response = ['error' => 'Source file does not exist'];
                 break;
             }
+
             $ext = strtolower(pathinfo($newName, PATHINFO_EXTENSION));
-            if (!in_array($ext, ['mp3', 'wav', 'ogg'])) {
-                $response = ['error' => 'Invalid extension'];
+            if (!in_array($ext, ['mp3', 'wav', 'ogg', 'webm'])) {
+                $response = ['error' => 'Invalid file extension. Only MP3, WAV, OGG, and WEBM are allowed.'];
                 break;
             }
-            $safeName = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $newName);
-            $newFile = __DIR__ . '/assets/audio/' . $safeName;
-            if (file_exists($newFile)) {
-                $response = ['error' => 'File already exists'];
+            $cleanNewName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', pathinfo($newName, PATHINFO_FILENAME)) . '.' . $ext;
+            $newPath = __DIR__ . '/assets/audio/' . $cleanNewName;
+
+            if (file_exists($newPath)) {
+                $response = ['error' => 'A file with that name already exists'];
                 break;
             }
-            if (rename($oldFile, $newFile)) {
-                $response = ['success' => true, 'file' => [
-                    'name' => $safeName,
-                    'path' => 'assets/audio/' . $safeName,
-                    'url' => 'assets/audio/' . rawurlencode($safeName)
-                ]];
+
+            if (rename($oldPath, $newPath)) {
+                $oldRelPath = 'assets/audio/' . $baseName;
+                $newRelPath = 'assets/audio/' . $cleanNewName;
+
+                $stmt = $pdo->prepare("SELECT setting_value FROM global_settings WHERE setting_key = 'global_audio_settings'");
+                $stmt->execute();
+                $globalVal = $stmt->fetchColumn();
+                if ($globalVal) {
+                    $globalValUpdated = str_replace($oldRelPath, $newRelPath, $globalVal);
+                    $stmtUp = $pdo->prepare("UPDATE global_settings SET setting_value = ? WHERE setting_key = 'global_audio_settings'");
+                    $stmtUp->execute([$globalValUpdated]);
+                }
+
+                $stmtQ = $pdo->query("SELECT id, audio_settings FROM quizzes WHERE audio_settings IS NOT NULL");
+                $quizzes = $stmtQ->fetchAll();
+                foreach ($quizzes as $q) {
+                    $updatedSettings = str_replace($oldRelPath, $newRelPath, $q['audio_settings']);
+                    $stmtUpQ = $pdo->prepare("UPDATE quizzes SET audio_settings = ? WHERE id = ?");
+                    $stmtUpQ->execute([$updatedSettings, $q['id']]);
+                }
+
+                $response = [
+                    'success' => true,
+                    'file' => [
+                        'name' => $cleanNewName,
+                        'path' => $newRelPath,
+                        'url' => 'assets/audio/' . rawurlencode($cleanNewName)
+                    ],
+                    'new_path' => $newRelPath,
+                    'new_name' => $cleanNewName
+                ];
             } else {
-                $response = ['error' => 'Rename failed'];
+                $response = ['error' => 'Failed to rename file'];
             }
             break;
 
@@ -1243,20 +1318,26 @@ try {
                 $response = ['error' => 'Unauthorized'];
                 break;
             }
-            $path = $_POST['path'] ?? '';
-            if (!$path) {
-                $response = ['error' => 'Missing parameters'];
+            $input = json_decode(file_get_contents('php://input'), true);
+            $filePath = trim($input['file_path'] ?? '');
+
+            if (empty($filePath)) {
+                $response = ['error' => 'File path is required'];
                 break;
             }
-            $file = __DIR__ . '/' . ltrim($path, '/');
-            if (strpos(realpath($file), realpath(__DIR__ . '/assets/audio/')) !== 0 || !file_exists($file)) {
-                $response = ['error' => 'Invalid path or file not found'];
+
+            $baseName = basename($filePath);
+            $targetFile = __DIR__ . '/assets/audio/' . $baseName;
+
+            if (!file_exists($targetFile) || !is_file($targetFile)) {
+                $response = ['error' => 'File does not exist'];
                 break;
             }
-            if (unlink($file)) {
+
+            if (unlink($targetFile)) {
                 $response = ['success' => true];
             } else {
-                $response = ['error' => 'Delete failed'];
+                $response = ['error' => 'Failed to delete file'];
             }
             break;
 
@@ -1265,49 +1346,72 @@ try {
                 $response = ['error' => 'Unauthorized'];
                 break;
             }
-            $data = json_decode(file_get_contents('php://input'), true);
-            $quizId = $data['quiz_id'] ?? null;
-            $audioSettings = json_encode($data['settings'] ?? []);
-            
-            if ($quizId) {
-                $override = isset($data['audio_override']) ? intval($data['audio_override']) : 1;
-                $stmt = $pdo->prepare("UPDATE quizzes SET audio_override = ?, audio_settings = ? WHERE id = ?");
-                $stmt->execute([$override, $audioSettings, $quizId]);
-            } else {
-                $stmt = $pdo->prepare("INSERT INTO global_settings (setting_key, setting_value, category) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value");
-                $stmt->execute(['global_audio_settings', $audioSettings, 'audio']);
+            $input = json_decode(file_get_contents('php://input'), true);
+            $quizId = isset($input['quiz_id']) && $input['quiz_id'] !== '' ? intval($input['quiz_id']) : null;
+            $audioOverride = isset($input['audio_override']) ? intval($input['audio_override']) : 0;
+            $audioConfig = $input['audio_config'] ?? null;
+
+            if (!$audioConfig) {
+                $response = ['error' => 'Audio config is required'];
+                break;
             }
+
+            if (empty($audioConfig) || !isset($audioConfig['global']) || !isset($audioConfig['categories'])) {
+                $response = ['error' => 'Invalid audio configuration structure'];
+                break;
+            }
+
+            $configJson = json_encode($audioConfig);
+
+            if ($quizId) {
+                $stmt = $pdo->prepare("UPDATE quizzes SET audio_override = ?, audio_settings = ? WHERE id = ?");
+                $stmt->execute([$audioOverride, $configJson, $quizId]);
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO global_settings (setting_key, setting_value, category) VALUES ('global_audio_settings', ?, 'Audio') ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value");
+                $stmt->execute([$configJson]);
+            }
+
             $response = ['success' => true];
             break;
 
         case 'get_quiz_audio_settings':
-            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
-                $response = ['error' => 'Unauthorized'];
-                break;
-            }
-            $quizId = $_GET['quiz_id'] ?? 0;
-            if ($quizId == 0) {
+            $quizId = intval($_GET['quiz_id'] ?? 0);
+            if ($quizId === 0) {
                 $stmt = $pdo->prepare("SELECT setting_value FROM global_settings WHERE setting_key = 'global_audio_settings'");
                 $stmt->execute();
                 $globalVal = $stmt->fetchColumn();
+                $audioConfig = $globalVal ? json_decode($globalVal, true) : null;
+                if (!$audioConfig || !isset($audioConfig['global']) || !isset($audioConfig['categories'])) {
+                    $audioConfig = getDefaultAudioSettings();
+                }
                 $response = [
                     'success' => true,
                     'audio_override' => 0,
-                    'audio_config' => $globalVal ? json_decode($globalVal, true) : getDefaultAudioSettings()
+                    'audio_config' => $audioConfig
                 ];
             } else {
                 $stmt = $pdo->prepare("SELECT audio_override, audio_settings FROM quizzes WHERE id = ?");
                 $stmt->execute([$quizId]);
                 $row = $stmt->fetch();
-                if ($row) {
-                    $response = [
-                        'success' => true,
-                        'audio_override' => $row['audio_override'],
-                        'audio_config' => $row['audio_settings'] ? json_decode($row['audio_settings'], true) : getDefaultAudioSettings()
-                    ];
-                } else {
+
+                if (!$row) {
                     $response = ['error' => 'Quiz not found'];
+                    break;
                 }
+
+                $audioConfig = null;
+                if ($row['audio_settings']) {
+                    $audioConfig = json_decode($row['audio_settings'], true);
+                }
+                if (!$audioConfig || !isset($audioConfig['global']) || !isset($audioConfig['categories'])) {
+                    $audioConfig = getResolvedAudioSettings($pdo);
+                }
+
+                $response = [
+                    'success' => true,
+                    'audio_override' => intval($row['audio_override']),
+                    'audio_config' => $audioConfig
+                ];
             }
             break;
 
@@ -1369,181 +1473,6 @@ try {
                 'explanation' => $q['explanation'] ?: 'No explanation provided.',
                 'student_score' => $studentScore,
                 'leaderboard' => $leaderboard
-            ];
-            break;
-
-        case 'get_audio_files':
-            $dir = __DIR__ . '/assets/audio/';
-            $files = [];
-            if (is_dir($dir)) {
-                $dh = opendir($dir);
-                if ($dh) {
-                    while (($file = readdir($dh)) !== false) {
-                        if ($file !== '.' && $file !== '..') {
-                            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-                            if (in_array($ext, ['mp3', 'wav', 'ogg', 'webm'])) {
-                                $files[] = [
-                                    'name' => $file,
-                                    'path' => 'assets/audio/' . $file
-                                ];
-                            }
-                        }
-                    }
-                    closedir($dh);
-                }
-            }
-            $response = ['success' => true, 'files' => $files];
-            break;
-
-        case 'rename_audio':
-            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
-                $response = ['error' => 'Unauthorized'];
-                break;
-            }
-            $input = json_decode(file_get_contents('php://input'), true);
-            $filePath = trim($input['file_path'] ?? '');
-            $newName = trim($input['new_name'] ?? '');
-
-            if (empty($filePath) || empty($newName)) {
-                $response = ['error' => 'File path and new name are required'];
-                break;
-            }
-
-            $baseName = basename($filePath);
-            $oldPath = __DIR__ . '/assets/audio/' . $baseName;
-            if (!file_exists($oldPath) || !is_file($oldPath)) {
-                $response = ['error' => 'Source file does not exist'];
-                break;
-            }
-
-            $ext = strtolower(pathinfo($newName, PATHINFO_EXTENSION));
-            if (!in_array($ext, ['mp3', 'wav', 'ogg'])) {
-                $response = ['error' => 'Invalid file extension. Only MP3, WAV, and OGG are allowed.'];
-                break;
-            }
-            $cleanNewName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', pathinfo($newName, PATHINFO_FILENAME)) . '.' . $ext;
-            $newPath = __DIR__ . '/assets/audio/' . $cleanNewName;
-
-            if (file_exists($newPath)) {
-                $response = ['error' => 'A file with that name already exists'];
-                break;
-            }
-
-            if (rename($oldPath, $newPath)) {
-                $oldRelPath = 'assets/audio/' . $baseName;
-                $newRelPath = 'assets/audio/' . $cleanNewName;
-
-                $stmt = $pdo->prepare("SELECT setting_value FROM global_settings WHERE setting_key = 'global_audio_settings'");
-                $stmt->execute();
-                $globalVal = $stmt->fetchColumn();
-                if ($globalVal) {
-                    $globalValUpdated = str_replace($oldRelPath, $newRelPath, $globalVal);
-                    $stmtUp = $pdo->prepare("UPDATE global_settings SET setting_value = ? WHERE setting_key = 'global_audio_settings'");
-                    $stmtUp->execute([$globalValUpdated]);
-                }
-
-                $stmtQ = $pdo->query("SELECT id, audio_settings FROM quizzes WHERE audio_settings IS NOT NULL");
-                $quizzes = $stmtQ->fetchAll();
-                foreach ($quizzes as $q) {
-                    $updatedSettings = str_replace($oldRelPath, $newRelPath, $q['audio_settings']);
-                    $stmtUpQ = $pdo->prepare("UPDATE quizzes SET audio_settings = ? WHERE id = ?");
-                    $stmtUpQ->execute([$updatedSettings, $q['id']]);
-                }
-
-                $response = ['success' => true, 'new_path' => $newRelPath, 'new_name' => $cleanNewName];
-            } else {
-                $response = ['error' => 'Failed to rename file'];
-            }
-            break;
-
-        case 'delete_audio':
-            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
-                $response = ['error' => 'Unauthorized'];
-                break;
-            }
-            $input = json_decode(file_get_contents('php://input'), true);
-            $filePath = trim($input['file_path'] ?? '');
-
-            if (empty($filePath)) {
-                $response = ['error' => 'File path is required'];
-                break;
-            }
-
-            $baseName = basename($filePath);
-            $targetFile = __DIR__ . '/assets/audio/' . $baseName;
-
-            if (!file_exists($targetFile) || !is_file($targetFile)) {
-                $response = ['error' => 'File does not exist'];
-                break;
-            }
-
-            if (unlink($targetFile)) {
-                $response = ['success' => true];
-            } else {
-                $response = ['error' => 'Failed to delete file'];
-            }
-            break;
-
-        case 'save_audio_settings':
-            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
-                $response = ['error' => 'Unauthorized'];
-                break;
-            }
-            $input = json_decode(file_get_contents('php://input'), true);
-            $quizId = isset($input['quiz_id']) && $input['quiz_id'] !== '' ? intval($input['quiz_id']) : null;
-            $audioOverride = isset($input['audio_override']) ? intval($input['audio_override']) : 0;
-            $audioConfig = $input['audio_config'] ?? null;
-
-            if (!$audioConfig) {
-                $response = ['error' => 'Audio config is required'];
-                break;
-            }
-
-            $configJson = json_encode($audioConfig);
-
-            if ($quizId) {
-                $stmt = $pdo->prepare("UPDATE quizzes SET audio_override = ?, audio_settings = ? WHERE id = ?");
-                $stmt->execute([$audioOverride, $configJson, $quizId]);
-            } else {
-                $stmt = $pdo->prepare("INSERT INTO global_settings (setting_key, setting_value, category) VALUES ('global_audio_settings', ?, 'Audio') ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value");
-                $stmt->execute([$configJson]);
-            }
-
-            $response = ['success' => true];
-            break;
-
-        case 'get_quiz_audio_settings':
-            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
-                $response = ['error' => 'Unauthorized'];
-                break;
-            }
-            $quizId = intval($_GET['quiz_id'] ?? 0);
-            if (!$quizId) {
-                $response = ['error' => 'Quiz ID is required'];
-                break;
-            }
-
-            $stmt = $pdo->prepare("SELECT audio_override, audio_settings FROM quizzes WHERE id = ?");
-            $stmt->execute([$quizId]);
-            $info = $stmt->fetch();
-
-            if (!$info) {
-                $response = ['error' => 'Quiz not found'];
-                break;
-            }
-
-            $audioConfig = null;
-            if ($info['audio_settings']) {
-                $audioConfig = json_decode($info['audio_settings'], true);
-            }
-            if (!$audioConfig) {
-                $audioConfig = getResolvedAudioSettings($pdo);
-            }
-
-            $response = [
-                'success' => true,
-                'audio_override' => intval($info['audio_override']),
-                'audio_config' => $audioConfig
             ];
             break;
 

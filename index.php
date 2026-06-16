@@ -38,14 +38,14 @@ session_start();
         <button onclick="switchTab('JOIN')" id="tab-JOIN" class="student-only flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer bg-indigo-600 text-white">
           <i data-lucide="gamepad-2" class="w-4 h-4"></i> Join Quiz
         </button>
-        <button onclick="switchTab('HISTORY')" id="tab-HISTORY" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
-          <i data-lucide="history" class="w-4 h-4"></i> Quiz History
-        </button>
         <button onclick="switchTab('PRESENT')" id="tab-PRESENT" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
-          <i data-lucide="presentation" class="w-4 h-4"></i> Present Host
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
         </button>
         <button onclick="switchTab('MAKE')" id="tab-MAKE" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="file-pen-line" class="w-4 h-4"></i> Quiz Builder
+        </button>
+        <button onclick="switchTab('HISTORY')" id="tab-HISTORY" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
+          <i data-lucide="history" class="w-4 h-4"></i> Quiz History
         </button>
         <button onclick="switchTab('SETTINGS')" id="tab-SETTINGS" class="admin-only hidden flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer text-slate-600 hover:bg-slate-100">
           <i data-lucide="settings" class="w-4 h-4"></i> Settings
@@ -72,10 +72,11 @@ session_start();
   <main class="flex-grow max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col justify-start">
 
     <!-- JOIN TAB VIEW -->
-    <div id="panel-JOIN" class="tab-panel flex-grow flex items-center justify-center py-12">
+    <div id="panel-JOIN" class="tab-panel flex-grow flex flex-col items-center justify-start py-8 gap-8">
       <div class="absolute top-1/4 left-1/3 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
       <div class="absolute bottom-1/4 right-1/3 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
+      <!-- Lobby PIN Box -->
       <div class="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl p-8 text-center space-y-6 relative overflow-hidden">
         <img src="assets/logo.png" alt="TechnoHacks Solutions" class="mx-auto h-32 w-32 object-contain animate-bounce" />
         <div>
@@ -109,6 +110,42 @@ session_start();
           </div>
         </form>
       </div>
+
+      <!-- Recent Winners Hall of Fame Section -->
+      <div class="w-full max-w-4xl bg-white border border-slate-200 rounded-2xl shadow-xl p-6 md:p-8 space-y-6 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <i data-lucide="trophy" class="w-6 h-6 text-yellow-500"></i>
+            <div>
+              <h3 class="font-sans text-lg font-black text-slate-900">TechnoQuiz Champions</h3>
+              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Lobby Hall of Fame</p>
+            </div>
+          </div>
+          <button onclick="loadRecentWinners()" class="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-bold">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Update Feed
+          </button>
+        </div>
+
+        <div class="overflow-x-auto text-sm">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 text-slate-400 font-bold text-xs uppercase tracking-wider h-8">
+                <th class="py-2 pl-4">Winner</th>
+                <th class="py-2">Quiz Topic</th>
+                <th class="py-2 text-right">Marks / Score</th>
+                <th class="py-2 text-right">Correct Questions</th>
+                <th class="py-2 text-right pr-4">Completed Date</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100" id="lobby-winners-feed">
+              <tr>
+                <td colspan="5" class="text-center text-slate-400 italic py-8">Loading recent champions...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- HISTORY TAB VIEW -->
@@ -134,28 +171,65 @@ session_start();
     <div id="panel-PRESENT" class="tab-panel hidden space-y-8 py-6">
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 class="font-sans text-2xl font-extrabold text-slate-900">Host Live Quiz Arena</h2>
-          <p class="text-slate-500 text-sm">Select a quiz below to generate a live room code and display standings.</p>
+          <h2 class="font-sans text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+            <i data-lucide="layout-dashboard" class="w-6 h-6 text-indigo-600"></i>
+            Admin Operations Dashboard
+          </h2>
+          <p class="text-slate-500 text-sm">Monitor live sessions in real time, launch new quizzes, and view analytics.</p>
         </div>
-        <button onclick="switchTab('MAKE')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer">
+        <button onclick="switchTab('MAKE')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm">
           <i data-lucide="plus" class="w-4 h-4"></i> Create New Quiz
         </button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <!-- Templates Column -->
-        <div class="space-y-4">
-          <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400">Available Quizzes</h3>
-          <div id="quiz-list" class="space-y-3.5 max-h-[500px] overflow-y-auto pr-2">
-            <!-- Dynamic quizzes render here -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left: Live Operations (Active Sessions & Quiz Launchpad) -->
+        <div class="lg:col-span-8 space-y-8">
+          
+          <!-- Live Active Rooms Section -->
+          <div class="bg-gradient-to-br from-indigo-50/45 via-white to-white border border-indigo-100 rounded-2xl p-6 shadow-sm space-y-4">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h3 class="text-xs uppercase font-bold tracking-wider text-slate-600 flex items-center gap-2">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Active Room Lobbies
+              </h3>
+              <button onclick="loadAdminSessions()" class="text-xs text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer font-bold">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Live
+              </button>
+            </div>
+            
+            <div id="admin-sessions-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <p class="text-xs text-slate-400 italic py-4 col-span-2">No active live sessions running.</p>
+            </div>
           </div>
+
+          <!-- Launchpad (Available Quizzes) Section -->
+          <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-600 flex items-center gap-2">
+              <i data-lucide="rocket" class="w-4 h-4 text-indigo-600"></i>
+              Launchpad: Available Quiz Templates
+            </h3>
+            <div id="quiz-list" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-1">
+              <!-- Available quizzes populate here dynamically -->
+            </div>
+          </div>
+
         </div>
 
-        <!-- Dashboard Statistics Section -->
-        <div class="space-y-6">
+        <!-- Right: Analytics Summary Cards -->
+        <div class="lg:col-span-4 space-y-6">
+          <h3 class="text-xs uppercase font-bold tracking-wider text-slate-600 flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-600"></i>
+            Platform Analytics
+          </h3>
+
           <!-- Recent Quizzes Card -->
           <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
-            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5"><i data-lucide="clock" class="w-4 h-4 text-indigo-650"></i> Recent Quizzes</h3>
+            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-450 flex items-center gap-1.5"><i data-lucide="clock" class="w-4 h-4 text-indigo-650"></i> Recent Quizzes</h3>
             <div id="dash-recent-quizzes" class="space-y-2 text-xs">
               <p class="text-slate-400 italic">No recent quizzes found.</p>
             </div>
@@ -163,7 +237,7 @@ session_start();
 
           <!-- Top Ranking Students Card -->
           <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
-            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5"><i data-lucide="trophy" class="w-4 h-4 text-yellow-500"></i> Top Ranking Students</h3>
+            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-455 flex items-center gap-1.5"><i data-lucide="trophy" class="w-4 h-4 text-yellow-500"></i> Top Ranking Students</h3>
             <div class="overflow-x-auto text-xs">
               <table class="w-full text-left">
                 <thead>
@@ -181,7 +255,7 @@ session_start();
 
           <!-- Student Marks Card -->
           <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
-            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5"><i data-lucide="award" class="w-4 h-4 text-emerald-600"></i> Student Marks</h3>
+            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-455 flex items-center gap-1.5"><i data-lucide="award" class="w-4 h-4 text-emerald-600"></i> Student Marks</h3>
             <div class="overflow-x-auto text-xs">
               <table class="w-full text-left">
                 <thead>
@@ -199,7 +273,7 @@ session_start();
 
           <!-- Accuracy Statistics Card -->
           <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
-            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5"><i data-lucide="percent" class="w-4 h-4 text-cyan-600"></i> Accuracy Statistics</h3>
+            <h3 class="text-xs uppercase font-bold tracking-wider text-slate-455 flex items-center gap-1.5"><i data-lucide="percent" class="w-4 h-4 text-cyan-600"></i> Accuracy Statistics</h3>
             <div id="dash-accuracy-stats" class="space-y-3 text-xs">
               <p class="text-slate-400 italic">Loading accuracy stats...</p>
             </div>
@@ -381,21 +455,7 @@ session_start();
         </div>
       </div>
 
-      <!-- Dashboard View -->
-      <div id="admin-dashboard-view" class="hidden w-full max-w-5xl mx-auto space-y-6">
-        <div class="flex justify-between items-center">
-          <div>
-            <h2 class="font-sans text-2xl font-extrabold text-slate-900">Live Sessions & Leaderboards</h2>
-            <p class="text-slate-500 text-sm">Monitor all active game lobbies and their standings in real time.</p>
-          </div>
-          <button onclick="handleAdminLogout()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-bold py-2.5 px-4 rounded-xl text-xs transition-colors cursor-pointer">
-            Logout Admin
-          </button>
-        </div>
-        <div id="admin-sessions-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Dynamic sessions loaded here -->
-        </div>
-      </div>
+
     </div>
 
   </main>
@@ -491,7 +551,15 @@ session_start();
   <!-- Core Page JS Logic -->
   <script>
     // Active Tab Navigation
+    let activeSessionsInterval = null;
+
     function switchTab(tabId) {
+      // Clear live rooms polling if navigating away
+      if (activeSessionsInterval) {
+        clearInterval(activeSessionsInterval);
+        activeSessionsInterval = null;
+      }
+
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
       const targetPanel = document.getElementById('panel-' + tabId);
       if (targetPanel) targetPanel.classList.remove('hidden');
@@ -511,6 +579,8 @@ session_start();
       if (tabId === 'PRESENT') {
         loadTemplates();
         loadDashboardStats();
+        loadAdminSessions();
+        activeSessionsInterval = setInterval(loadAdminSessions, 5000);
       } else if (tabId === 'HISTORY') {
         loadHistorySessions();
       } else if (tabId === 'SETTINGS') {
@@ -597,64 +667,12 @@ session_start();
       lucide.createIcons();
     }
 
-    function renderSettingsFields(category) {
-      document.getElementById('settings-current-category-title').innerText = category;
-      const container = document.getElementById('settings-fields-container');
+    // renderSettingsFields is defined below after audio panel helpers
 
-      // Special: Audio & Music tab renders dedicated UI
-      if (category === 'Audio & Music') {
-        if (typeof onAudioScopeChange === 'function') {
-            onAudioScopeChange(currentAudioScope || '0');
-        }
-        return;
-      }
-
-      container.innerHTML = '<div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12"></div>';
-      const grid = container.querySelector('.grid');
-      
-      const fields = currentSettingsData[category];
-      for (const key in fields) {
-        const meta = fields[key];
-        const wrap = document.createElement('div');
-        wrap.className = 'bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2';
-        
-        const label = document.createElement('label');
-        label.className = 'block text-[10px] font-bold text-slate-500 uppercase tracking-wider';
-        label.innerText = meta.label;
-        wrap.appendChild(label);
-        
-        if (meta.type === 'boolean') {
-           const select = document.createElement('select');
-           select.className = 'w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-indigo-500 rounded-lg p-2.5 text-slate-800 text-xs font-semibold cursor-pointer';
-           select.innerHTML = `<option value="1" ${meta.value == "1" ? "selected" : ""}>Enabled</option><option value="0" ${meta.value == "0" ? "selected" : ""}>Disabled</option>`;
-           select.onchange = (e) => { currentSettingsData[category][key].value = e.target.value; };
-           wrap.appendChild(select);
-        } else if (meta.type === 'select') {
-           const select = document.createElement('select');
-           select.className = 'w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-indigo-500 rounded-lg p-2.5 text-slate-800 text-xs font-semibold cursor-pointer';
-           const opts = meta.options.split(',');
-           opts.forEach(o => {
-               const option = document.createElement('option');
-               option.value = o;
-               option.innerText = o;
-               if (meta.value == o) option.selected = true;
-               select.appendChild(option);
-           });
-           select.onchange = (e) => { currentSettingsData[category][key].value = e.target.value; };
-           wrap.appendChild(select);
-        } else {
-           const input = document.createElement('input');
-           input.type = meta.type === 'number' ? 'number' : 'text';
-           input.className = 'w-full bg-slate-50 border border-slate-200 focus:outline-none focus:border-indigo-500 rounded-lg p-2.5 text-slate-800 text-xs font-semibold';
-           input.value = meta.value;
-           input.onchange = (e) => { currentSettingsData[category][key].value = e.target.value; };
-           wrap.appendChild(input);
-        }
-        grid.appendChild(wrap);
-      }
-    }
-
-    let currentAudioConfig = {};
+    let currentAudioConfig = {
+      global: { master_volume: 1.0, music_volume: 1.0, effects_volume: 1.0, mute_all: false },
+      categories: {}
+    };
     let currentAudioScope = ""; 
     let audioOverrideEnabled = false;
     let uploadedAudioFiles = [];
@@ -1009,14 +1027,14 @@ session_start();
       if (lbl) lbl.innerText = Math.round(val * 100) + '%';
     }
 
-    function saveScopeAudioSettings() {
+    function saveScopeAudioSettings(btnEl) {
       const payload = {
         quiz_id: currentAudioScope,
         audio_override: audioOverrideEnabled ? 1 : 0,
         audio_config: currentAudioConfig
       };
       
-      const btn = event.currentTarget;
+      const btn = btnEl || document.activeElement;
       const originalHtml = btn.innerHTML;
       btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Saving...`;
       lucide.createIcons();
@@ -1353,7 +1371,7 @@ session_start();
       `;
 
       const saveBtnHtml = `
-        <button onclick="saveScopeAudioSettings()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md">
+        <button onclick="saveScopeAudioSettings(this)" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md">
           <i data-lucide="save" class="w-4 h-4"></i> Save & Apply Current Audio Configuration
         </button>
       `;
@@ -1722,12 +1740,15 @@ session_start();
                   <span>|</span>
                   <span>Duration: ${q.time_limit}s</span>
                 </div>
-                <div class="flex gap-2 pt-1.5">
+                <div class="flex gap-2 pt-1.5 items-center">
                   <button onclick="hostQuiz('${q.id}', '${q.pin_code}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm">
                     <i data-lucide="play" class="w-3.5 h-3.5 fill-white"></i> Host Live Room
                   </button>
                   <button onclick="duplicateQuiz('${q.id}')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-semibold py-2 px-3 rounded-lg text-xs flex items-center gap-1 transition-colors cursor-pointer">
                     <i data-lucide="copy" class="w-3.5 h-3.5"></i> Clone
+                  </button>
+                  <button onclick="deleteQuiz('${q.id}')" class="bg-red-50 hover:bg-red-100 text-red-650 border border-red-200 font-semibold py-2 px-3 rounded-lg text-xs flex items-center gap-1 transition-colors cursor-pointer ml-auto" title="Delete Template">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Delete
                   </button>
                 </div>
               </div>
@@ -1752,6 +1773,21 @@ session_start();
       fd.append('quiz_id', quizId);
       fetch('api.php?action=duplicate_quiz', { method: 'POST', body: fd })
         .then(() => loadTemplates());
+    }
+
+    function deleteQuiz(quizId) {
+      if (!confirm("Are you sure you want to delete this quiz template? This action cannot be undone and will delete all associated questions.")) return;
+      const fd = new FormData();
+      fd.append('quiz_id', quizId);
+      fetch('api.php?action=delete_quiz', { method: 'POST', body: fd })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            loadTemplates();
+          } else {
+            alert("Failed to delete quiz: " + (data.error || "Unknown error"));
+          }
+        });
     }
 
     // Compose Wizard state
@@ -2146,18 +2182,69 @@ session_start();
       });
     }
 
-    function loadAdminSessions() {
-      fetch('api.php?action=get_live_sessions')
+    function loadRecentWinners() {
+      fetch('api.php?action=get_recent_winners')
         .then(res => res.json())
         .then(data => {
+          const tbody = document.getElementById('lobby-winners-feed');
+          if (!tbody) return;
+          tbody.innerHTML = '';
+          if (!data.success || !data.winners || data.winners.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-slate-400 italic text-center py-8">No recent champions recorded yet. Be the first! 🏆</td></tr>`;
+            return;
+          }
+          data.winners.forEach(w => {
+            const dateStr = new Date(w.created_at).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            const streakBadge = w.streak > 2 ? `<span class="inline-flex items-center bg-amber-50 text-amber-700 text-[10px] font-bold px-1.5 py-0.5 rounded ml-1.5 border border-amber-200"><i data-lucide="flame" class="w-3 h-3 fill-amber-500 text-amber-500 mr-0.5"></i> ${w.streak} Streak</span>` : '';
+            tbody.innerHTML += `
+              <tr class="hover:bg-slate-50 transition-colors h-12">
+                <td class="py-2 pl-4">
+                  <div class="flex items-center gap-2">
+                    <span class="font-extrabold text-slate-800">${w.username}</span>
+                    ${streakBadge}
+                  </div>
+                </td>
+                <td class="py-2 text-slate-650 font-semibold">${w.quiz_title}</td>
+                <td class="py-2 text-right font-mono text-indigo-650 font-bold">${w.score} pts</td>
+                <td class="py-2 text-right text-emerald-650 font-bold font-mono">
+                  ${w.correct_answers} / ${w.total_questions} <span class="text-[10px] text-slate-400 font-normal ml-0.5">correct</span>
+                </td>
+                <td class="py-2 text-right pr-4 text-slate-500 text-xs">${dateStr}</td>
+              </tr>
+            `;
+          });
+          lucide.createIcons();
+        })
+        .catch(err => {
+          console.error("Failed to load recent winners:", err);
+        });
+    }
+
+    function loadAdminSessions() {
+      fetch('api.php?action=get_live_sessions')
+        .then(res => {
+          if (!res.ok) throw new Error('Network response was not ok');
+          return res.json();
+        })
+        .then(data => {
           const container = document.getElementById('admin-sessions-list');
+          if (!container) return;
           container.innerHTML = '';
-          if (data.length === 0) {
-            container.innerHTML = '<p class="text-sm text-slate-500 col-span-2">No active sessions found.</p>';
+          if (data.error) {
+            container.innerHTML = `<p class="text-sm text-red-500 italic py-4 col-span-2">Error: ${data.error}</p>`;
+            return;
+          }
+          if (!Array.isArray(data) || data.length === 0) {
+            container.innerHTML = '<p class="text-sm text-slate-400 italic py-4 col-span-2">No active live sessions running.</p>';
             return;
           }
           data.forEach(s => {
-            const leaders = s.leaderboard.map((l, i) => `
+            const leaders = (s.leaders || []).map((l, i) => `
               <div class="flex justify-between text-xs py-1.5 border-b border-slate-100 last:border-0">
                 <span class="font-semibold text-slate-700">${i+1}. ${l.name}</span>
                 <span class="font-bold text-indigo-650">${l.score} pts</span>
@@ -2167,24 +2254,31 @@ session_start();
             container.innerHTML += `
               <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
                 <div class="flex justify-between items-start mb-2">
-                  <h3 class="font-bold text-slate-900">${s.quiz_title}</h3>
+                  <h3 class="font-bold text-slate-900">${s.title}</h3>
                   <span class="text-[9px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-2 py-0.5 rounded font-bold uppercase">${s.status}</span>
                 </div>
                 <div class="flex gap-4 text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4">
-                  <span>PIN: <span class="text-indigo-650">${s.pin_code}</span></span>
-                  <span>Q-Index: ${s.current_question_index}</span>
+                  <span>PIN: <span class="text-indigo-650 font-mono">${s.pin_code}</span></span>
+                  <span>Q-Index: ${s.current_question_index + 1}/${s.total_questions}</span>
                 </div>
                 <div class="bg-slate-50 rounded-lg border border-slate-100 p-4 animate-none">
                   <h4 class="text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-wider flex items-center gap-1.5"><i data-lucide="award" class="w-3.5 h-3.5"></i> Top Standings</h4>
                   ${leaders || '<p class="text-xs text-slate-500 italic">No participants yet</p>'}
                 </div>
-                <button onclick="openLeaderboardModal('${s.pin_code}', '${s.quiz_title.replace(/'/g, "\\'")}')" class="mt-4 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-770 font-bold py-2.5 px-4 rounded-xl border border-indigo-200 text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm">
+                <button onclick="openLeaderboardModal('${s.pin_code}', '${(s.title || '').replace(/'/g, "\\'")}')" class="mt-4 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-770 font-bold py-2.5 px-4 rounded-xl border border-indigo-200 text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm">
                   <i data-lucide="list-ordered" class="w-4 h-4"></i> View Detailed Leaderboard
                 </button>
               </div>
             `;
           });
           lucide.createIcons();
+        })
+        .catch(err => {
+          console.error("Failed to load admin sessions:", err);
+          const container = document.getElementById('admin-sessions-list');
+          if (container) {
+            container.innerHTML = `<p class="text-sm text-red-500 italic py-4 col-span-2">Failed to load active lobbies: ${err.message}</p>`;
+          }
         });
     }
 
@@ -2202,6 +2296,7 @@ session_start();
       if (btn) btn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i>`;
     }
     checkAuth();
+    loadRecentWinners();
     lucide.createIcons();
   </script>
 </body>
