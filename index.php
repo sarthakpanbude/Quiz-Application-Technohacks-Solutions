@@ -79,25 +79,44 @@ session_start();
       <!-- Lobby PIN Box -->
       <div class="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl p-8 text-center space-y-6 relative overflow-hidden">
         <img src="assets/logo.png" alt="TechnoHacks Solutions" class="mx-auto h-32 w-32 object-contain animate-bounce" />
-        <div>
-          <h2 class="font-sans text-3xl font-extrabold text-slate-900">TechnoQuiz Lobby</h2>
-          <p class="text-slate-505 text-sm mt-1">Ready to test your skills? Enter details below</p>
+
+        <!-- Welcome Step (Shown by default) -->
+        <div id="welcome-step" class="space-y-6 animate-in fade-in duration-300">
+          <div>
+            <h2 class="font-sans text-3xl font-extrabold text-slate-900">Welcome to TechnoQuiz Lobby</h2>
+            <p class="text-slate-500 text-sm mt-2">Ready to test your skills? Join an active classroom session to begin.</p>
+          </div>
+          <button onclick="showPINStep()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-4 rounded-xl text-sm transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]">
+            <i data-lucide="gamepad-2" class="w-4 h-4"></i> Join Quiz
+          </button>
         </div>
 
         <div id="join-error" class="hidden p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-medium"></div>
 
-        <!-- PIN Step Form -->
-        <form id="pin-form" onsubmit="submitPIN(event)" class="space-y-4">
+        <!-- PIN Step Form (Hidden by default) -->
+        <form id="pin-form" onsubmit="submitPIN(event)" class="hidden space-y-4">
+          <div>
+            <h2 class="font-sans text-2xl font-extrabold text-slate-900">Enter PIN Code</h2>
+            <p class="text-slate-500 text-sm mt-1">Type the 6-digit session pin code provided by your instructor</p>
+          </div>
           <input type="text" id="pin-input" required placeholder="PIN Code" class="w-full text-center font-mono font-bold text-2xl tracking-widest bg-slate-50 border-2 border-slate-200 focus:border-indigo-650 focus:outline-none rounded-xl p-4 text-slate-800 focus:ring-4 focus:ring-indigo-550/10 shadow-inner" maxlength="6" />
-          <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-xl text-sm transition-colors cursor-pointer shadow-md">
-            Enter Game Lobby
-          </button>
+          <div class="grid grid-cols-3 gap-3">
+            <button type="button" onclick="showWelcomeStep()" class="col-span-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-4 rounded-xl text-xs transition-colors cursor-pointer border border-slate-200">
+              Back
+            </button>
+            <button type="submit" class="col-span-2 bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-xl text-sm transition-colors cursor-pointer shadow-md">
+              Enter Game Lobby
+            </button>
+          </div>
         </form>
 
         <!-- Username Step Form (Hidden by default) -->
         <form id="username-form" onsubmit="submitUsername(event)" class="hidden space-y-4">
-          <div class="text-left space-y-1">
-            <label class="text-[10px] uppercase font-bold tracking-wider text-slate-500">Pick a Display Name</label>
+          <div class="text-left space-y-2">
+            <div>
+              <h2 class="font-sans text-2xl font-extrabold text-slate-900">Pick a Name</h2>
+              <p class="text-slate-500 text-xs mt-0.5">This name will be displayed on the leaderboards.</p>
+            </div>
             <input type="text" id="username-input" required placeholder="e.g. JohnDoe_Prep" class="w-full text-center font-bold text-2xl bg-slate-50 border-2 border-slate-200 focus:border-indigo-650 focus:outline-none rounded-xl p-4 text-slate-800" />
           </div>
           <div class="grid grid-cols-2 gap-3 pt-2">
@@ -109,42 +128,6 @@ session_start();
             </button>
           </div>
         </form>
-      </div>
-
-      <!-- Recent Winners Hall of Fame Section -->
-      <div class="w-full max-w-4xl bg-white border border-slate-200 rounded-2xl shadow-xl p-6 md:p-8 space-y-6 relative overflow-hidden">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none"></div>
-        <div class="flex justify-between items-center pb-3 border-b border-slate-100">
-          <div class="flex items-center gap-2.5">
-            <i data-lucide="trophy" class="w-6 h-6 text-yellow-500"></i>
-            <div>
-              <h3 class="font-sans text-lg font-black text-slate-900">TechnoQuiz Champions</h3>
-              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Lobby Hall of Fame</p>
-            </div>
-          </div>
-          <button onclick="loadRecentWinners()" class="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-bold">
-            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Update Feed
-          </button>
-        </div>
-
-        <div class="overflow-x-auto text-sm">
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="border-b border-slate-200 text-slate-400 font-bold text-xs uppercase tracking-wider h-8">
-                <th class="py-2 pl-4">Winner</th>
-                <th class="py-2">Quiz Topic</th>
-                <th class="py-2 text-right">Marks / Score</th>
-                <th class="py-2 text-right">Correct Questions</th>
-                <th class="py-2 text-right pr-4">Completed Date</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100" id="lobby-winners-feed">
-              <tr>
-                <td colspan="5" class="text-center text-slate-400 italic py-8">Loading recent champions...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
 
@@ -1669,14 +1652,24 @@ session_start();
         });
     }
 
-    function showUsernameStep() {
+    function showWelcomeStep() {
+      document.getElementById('welcome-step').classList.remove('hidden');
       document.getElementById('pin-form').classList.add('hidden');
-      document.getElementById('username-form').classList.remove('hidden');
+      document.getElementById('username-form').classList.add('hidden');
+      document.getElementById('join-error').classList.add('hidden');
     }
 
     function showPINStep() {
+      document.getElementById('welcome-step').classList.add('hidden');
       document.getElementById('username-form').classList.add('hidden');
       document.getElementById('pin-form').classList.remove('hidden');
+      document.getElementById('join-error').classList.add('hidden');
+    }
+
+    function showUsernameStep() {
+      document.getElementById('welcome-step').classList.add('hidden');
+      document.getElementById('pin-form').classList.add('hidden');
+      document.getElementById('username-form').classList.remove('hidden');
     }
 
     function submitUsername(e) {
@@ -2226,7 +2219,7 @@ session_start();
     }
 
     function loadAdminSessions() {
-      fetch('api.php?action=get_live_sessions')
+      fetch('api.php?action=get_active_sessions')
         .then(res => {
           if (!res.ok) throw new Error('Network response was not ok');
           return res.json();
@@ -2265,9 +2258,14 @@ session_start();
                   <h4 class="text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-wider flex items-center gap-1.5"><i data-lucide="award" class="w-3.5 h-3.5"></i> Top Standings</h4>
                   ${leaders || '<p class="text-xs text-slate-500 italic">No participants yet</p>'}
                 </div>
-                <button onclick="openLeaderboardModal('${s.pin_code}', '${(s.title || '').replace(/'/g, "\\'")}')" class="mt-4 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-770 font-bold py-2.5 px-4 rounded-xl border border-indigo-200 text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm">
-                  <i data-lucide="list-ordered" class="w-4 h-4"></i> View Detailed Leaderboard
-                </button>
+                <div class="flex gap-2 mt-4">
+                  <button onclick="openLeaderboardModal('${s.pin_code}', '${(s.title || '').replace(/'/g, "\\'")}')" class="flex-grow bg-indigo-50 hover:bg-indigo-100 text-indigo-770 font-bold py-2.5 px-4 rounded-xl border border-indigo-200 text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm">
+                    <i data-lucide="list-ordered" class="w-4 h-4"></i> Leaderboard
+                  </button>
+                  <button onclick="deleteSession('${s.id}')" class="bg-red-50 hover:bg-red-100 text-red-650 border border-red-200 font-semibold py-2.5 px-3.5 rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer" title="Terminate Session">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Terminate
+                  </button>
+                </div>
               </div>
             `;
           });
@@ -2278,6 +2276,22 @@ session_start();
           const container = document.getElementById('admin-sessions-list');
           if (container) {
             container.innerHTML = `<p class="text-sm text-red-500 italic py-4 col-span-2">Failed to load active lobbies: ${err.message}</p>`;
+          }
+        });
+    }
+
+    function deleteSession(sessionId) {
+      if (!confirm("Are you sure you want to terminate and delete this active lobby session? This will permanently clear all candidate responses and scoreboard entries for this session.")) return;
+      
+      const fd = new FormData();
+      fd.append('session_id', sessionId);
+      fetch('api.php?action=delete_session', { method: 'POST', body: fd })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            loadAdminSessions();
+          } else {
+            alert("Failed to delete session: " + (data.error || "Unknown error"));
           }
         });
     }

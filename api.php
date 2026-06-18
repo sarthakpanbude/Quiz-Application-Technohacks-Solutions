@@ -341,6 +341,27 @@ try {
             $response = ['success' => true];
             break;
 
+        case 'delete_session':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $sessionId = intval($_POST['session_id'] ?? $_GET['session_id'] ?? 0);
+            $pin = $_POST['pin_code'] ?? $_GET['pin_code'] ?? '';
+            
+            if ($sessionId > 0) {
+                $stmt = $pdo->prepare("DELETE FROM quiz_sessions WHERE id = ?");
+                $stmt->execute([$sessionId]);
+                $response = ['success' => true];
+            } else if (!empty($pin)) {
+                $stmt = $pdo->prepare("DELETE FROM quiz_sessions WHERE pin_code = ?");
+                $stmt->execute([$pin]);
+                $response = ['success' => true];
+            } else {
+                $response = ['error' => 'Session ID or PIN is required'];
+            }
+            break;
+
         case 'host_session':
             $quizId = $_POST['quiz_id'] ?? $_GET['quiz_id'] ?? '';
             $pin = $_POST['pin_code'] ?? $_GET['pin_code'] ?? '';
@@ -1067,7 +1088,7 @@ try {
             $response = $history;
             break;
 
-        case 'get_live_sessions':
+        case 'get_active_sessions':
             $stmtS = $pdo->query("SELECT qs.id, qs.pin_code, qs.status, qs.quiz_id, qs.current_question_index, qs.active_question_start, q.title, q.time_limit, qs.updated_at FROM quiz_sessions qs JOIN quizzes q ON q.id = qs.quiz_id WHERE qs.status IN ('LOBBY', 'ACTIVE_QUESTION', 'SHOWING_LEADERBOARD') ORDER BY qs.id DESC");
             $live = [];
             while ($row = $stmtS->fetch()) {
