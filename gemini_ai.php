@@ -50,6 +50,105 @@ function parsePDFText($filePath) {
     return trim($text);
 }
 
+function cleanAndShuffleOptions(&$question) {
+    if (!isset($question['options']) || !is_array($question['options'])) return;
+    
+    // Clean any prefix like "A. ", "B. ", "A) ", etc.
+    foreach ($question['options'] as &$opt) {
+        $opt['text'] = preg_replace('/^[A-D][\.\)]\s*/i', '', $opt['text']);
+    }
+    unset($opt);
+
+    // Shuffle the options
+    shuffle($question['options']);
+}
+
+function validateAndCleanAIQuestions($questions) {
+    if (!is_array($questions)) return [];
+
+    $validated = [];
+    $seenQuestions = [];
+
+    foreach ($questions as $q) {
+        // 1. Basic properties check
+        if (empty($q['text']) || !isset($q['options']) || !is_array($q['options'])) {
+            continue;
+        }
+
+        // 2. Duplicate question detection (case-insensitive, strip whitespace)
+        $normText = strtolower(trim(preg_replace('/\s+/', ' ', $q['text'])));
+        if (in_array($normText, $seenQuestions)) {
+            continue;
+        }
+        $seenQuestions[] = $normText;
+
+        // 3. Duplicate answer/option detection
+        $seenOptions = [];
+        $validOptions = [];
+        $correctCount = 0;
+
+        foreach ($q['options'] as $opt) {
+            if (!isset($opt['text']) || trim($opt['text']) === '') {
+                continue;
+            }
+            $normOpt = strtolower(trim(preg_replace('/\s+/', ' ', $opt['text'])));
+            if (in_array($normOpt, $seenOptions)) {
+                continue;
+            }
+            $seenOptions[] = $normOpt;
+
+            $isCorrect = (isset($opt['isCorrect']) && ($opt['isCorrect'] === true || $opt['isCorrect'] == 1 || $opt['isCorrect'] === 'true'));
+            if ($isCorrect) {
+                $correctCount++;
+            }
+
+            $validOptions[] = [
+                'text' => trim($opt['text']),
+                'isCorrect' => $isCorrect
+            ];
+        }
+
+        // Must have at least 2 options and exactly 1 correct answer
+        $optCount = count($validOptions);
+        if ($optCount < 2 || $correctCount !== 1) {
+            if ($correctCount === 0 && $optCount > 0) {
+                $validOptions[0]['isCorrect'] = true;
+            } else if ($correctCount > 1) {
+                $foundCorrect = false;
+                foreach ($validOptions as &$vo) {
+                    if ($vo['isCorrect']) {
+                        if (!$foundCorrect) {
+                            $foundCorrect = true;
+                        } else {
+                            $vo['isCorrect'] = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Grammar validation / text enhancement
+        $qText = trim($q['text']);
+        if (!empty($qText)) {
+            $qText = ucfirst($qText);
+            if (!in_array(substr($qText, -1), ['?', '.', '!'])) {
+                $qText .= '?';
+            }
+        }
+
+        $validated[] = [
+            'text' => $qText,
+            'explanation' => trim($q['explanation'] ?? 'No explanation provided.'),
+            'image_path' => $q['image_path'] ?? null,
+            'code_snippet' => $q['code_snippet'] ?? null,
+            'code_language' => $q['code_language'] ?? null,
+            'options' => $validOptions
+        ];
+    }
+
+    return $validated;
+}
+
 function generateAIQuestions($topic, $difficulty, $count) {
     $apiKey = getGeminiKey();
     
@@ -57,15 +156,17 @@ function generateAIQuestions($topic, $difficulty, $count) {
         return getMockQuestions($topic, $difficulty, $count);
     }
     
-    $prompt = "You are a professional quiz maker and professor. Generate exactly $count highly accurate, professional, and distinct multiple-choice questions (MCQ) on the topic or text content provided below:\n\n" .
+    $prompt = "You are a professional curriculum developer and professor. Generate exactly $count distinct, high-quality, and syllabus-aligned questions on the topic/content provided below:\n\n" .
               "Topic/Content:\n\"$topic\"\n\n" .
               "Difficulty level: $difficulty\n\n" .
-              "For each question, generate:\n" .
+              "Please provide a mix of standard multiple-choice questions (MCQ), scenario-based conceptual questions, and programming/coding questions (if the topic is related to programming/code).\n\n" .
+              "For each question, provide:\n" .
               "1. Clear and professional question text.\n" .
-              "2. A smart explanation detailing why the correct answer is right and correcting common misconceptions.\n" .
-              "3. Exactly 4 options, where exactly one has isCorrect = true, and the other 3 have isCorrect = false.\n\n" .
-              "Format the output strictly as a JSON array of objects, with no markdown code block formatting or backticks. Schema:\n" .
-              "[{\"text\":\"question text\", \"explanation\":\"explanation text\", \"options\":[{\"text\":\"opt1\", \"isCorrect\":true}, {\"text\":\"opt2\", \"isCorrect\":false}, {\"text\":\"opt3\", \"isCorrect\":false}, {\"text\":\"opt4\", \"isCorrect\":false}]}]";
+              "2. A detailed explanation detailing why the correct option is right and correcting common misconceptions.\n" .
+              "3. Exactly 4 options, where exactly one has isCorrect = true, and the other 3 have isCorrect = false. Do NOT prefix option texts with A, B, C, D letters.\n" .
+              "4. If it is a coding question, provide a code snippet and set its code_language (e.g., 'javascript', 'python', 'php', 'cpp', 'sql') and code_snippet.\n\n" .
+              "Format the output strictly as a JSON array of objects, with no markdown code blocks or backticks. Example schema:\n" .
+              "[{\"text\":\"question text\", \"explanation\":\"explanation text\", \"code_snippet\":null, \"code_language\":null, \"options\":[{\"text\":\"opt1\", \"isCorrect\":true}, {\"text\":\"opt2\", \"isCorrect\":false}, {\"text\":\"opt3\", \"isCorrect\":false}, {\"text\":\"opt4\", \"isCorrect\":false}]}]";
 
     $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $apiKey;
     
@@ -102,6 +203,10 @@ function generateAIQuestions($topic, $difficulty, $count) {
         
         $questions = json_decode($text, true);
         if (is_array($questions) && count($questions) > 0) {
+            $questions = validateAndCleanAIQuestions($questions);
+            foreach ($questions as &$q) {
+                cleanAndShuffleOptions($q);
+            }
             return $questions;
         }
     }
@@ -317,11 +422,13 @@ function getMockQuestions($topic, $difficulty, $count) {
     $mockList = [];
     for ($i = 0; $i < $count; $i++) {
         $tpl = $templates[$i % count($templates)];
-        $mockList[] = [
+        $q = [
             "text" => $tpl["text"],
             "explanation" => $tpl["explanation"],
-            "options" => $tpl["options"]
+            "options" => json_decode(json_encode($tpl["options"]), true)
         ];
+        cleanAndShuffleOptions($q);
+        $mockList[] = $q;
     }
     return $mockList;
 }

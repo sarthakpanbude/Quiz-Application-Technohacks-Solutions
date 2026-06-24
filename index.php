@@ -1,11 +1,17 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
   <title>TechnoQuiz Pro - Institute Testing Arena</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -124,7 +130,7 @@ session_start();
               Back
             </button>
             <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-xs transition-colors cursor-pointer shadow-sm">
-              OK, Go! 🚀
+              OK, Go! ðŸš€
             </button>
           </div>
         </form>
@@ -412,7 +418,7 @@ session_start();
         </form>
         <div class="text-center pt-2">
           <button onclick="toggleAdminForm('register')" class="text-xs text-indigo-600 hover:underline font-semibold cursor-pointer">
-            Don't have an admin account? Register ➔
+            Don't have an admin account? Register âž”
           </button>
         </div>
       </div>
@@ -433,7 +439,7 @@ session_start();
         </form>
         <div class="text-center pt-2">
           <button onclick="toggleAdminForm('login')" class="text-xs text-indigo-600 hover:underline font-semibold cursor-pointer">
-            Already have an admin account? Log in ➔
+            Already have an admin account? Log in âž”
           </button>
         </div>
       </div>
@@ -533,6 +539,36 @@ session_start();
 
   <!-- Core Page JS Logic -->
   <script>
+    // Global CSRF fetch interceptor
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const originalFetch = window.fetch;
+    window.fetch = function (url, options = {}) {
+      if (options.method && options.method.toUpperCase() === 'POST') {
+        if (!options.headers) {
+          options.headers = {};
+        }
+        if (options.headers instanceof Headers) {
+          if (!options.headers.has('X-CSRF-TOKEN') && typeof csrfToken !== 'undefined' && csrfToken) {
+            options.headers.append('X-CSRF-TOKEN', csrfToken);
+          }
+        } else {
+          if (!options.headers['X-CSRF-TOKEN'] && typeof csrfToken !== 'undefined' && csrfToken) {
+            options.headers['X-CSRF-TOKEN'] = csrfToken;
+          }
+        }
+      }
+      return originalFetch(url, options);
+    };
+
+    // Lucide Icon safety fallback
+    if (typeof lucide === 'undefined') {
+      window.lucide = {
+        createIcons: function() {
+          console.warn("Lucide icons are unavailable (offline/CDN error).");
+        }
+      };
+    }
+
     // Active Tab Navigation
     let activeSessionsInterval = null;
 
@@ -2183,7 +2219,7 @@ session_start();
           if (!tbody) return;
           tbody.innerHTML = '';
           if (!data.success || !data.winners || data.winners.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-slate-400 italic text-center py-8">No recent champions recorded yet. Be the first! 🏆</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="text-slate-400 italic text-center py-8">No recent champions recorded yet. Be the first! ðŸ†</td></tr>`;
             return;
           }
           data.winners.forEach(w => {

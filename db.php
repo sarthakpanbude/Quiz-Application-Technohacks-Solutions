@@ -6,6 +6,7 @@ try {
     $pdo = new PDO("sqlite:" . $dbPath);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $pdo->exec("PRAGMA foreign_keys = ON;");
 
     // Initialize tables if they don't exist
     $pdo->exec("CREATE TABLE IF NOT EXISTS quizzes (
@@ -71,6 +72,45 @@ try {
     } catch (PDOException $e) {}
     try {
         $pdo->exec("ALTER TABLE quizzes ADD COLUMN audio_settings TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE questions ADD COLUMN image_path TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE questions ADD COLUMN code_snippet TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE questions ADD COLUMN code_language TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quizzes ADD COLUMN negative_marking INTEGER DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quizzes ADD COLUMN negative_marks INTEGER DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quizzes ADD COLUMN category TEXT DEFAULT 'General'");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quizzes ADD COLUMN difficulty TEXT DEFAULT 'Medium'");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quizzes ADD COLUMN scheduled_start TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quizzes ADD COLUMN expiry_time TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quizzes ADD COLUMN attempt_limit INTEGER DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quizzes ADD COLUMN shuffle_questions INTEGER DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quizzes ADD COLUMN shuffle_options INTEGER DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE quiz_sessions ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
     } catch (PDOException $e) {}
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS session_participants (
@@ -186,6 +226,14 @@ try {
 
         $pdo->commit();
     }
+
+    // Index migrations for query acceleration
+    try {
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_questions_quiz ON questions(quiz_id)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_options_question ON options(question_id)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_participants_session ON session_participants(session_id)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_responses_session ON session_responses(session_id)");
+    } catch (PDOException $e) {}
 
 } catch (PDOException $e) {
     die("Database Connection / Initialization Failed: " . $e->getMessage());

@@ -1,8 +1,17 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
   <title>TechnoQuiz Arena - Presenter Dashboard</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -333,6 +342,35 @@
 
   <!-- Host Controller Logic Script -->
   <script>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+      if (options.method && options.method.toUpperCase() === 'POST') {
+        if (!options.headers) {
+          options.headers = {};
+        }
+        if (options.headers instanceof Headers) {
+          if (!options.headers.has('X-CSRF-TOKEN') && typeof csrfToken !== 'undefined' && csrfToken) {
+            options.headers.append('X-CSRF-TOKEN', csrfToken);
+          }
+        } else {
+          if (!options.headers['X-CSRF-TOKEN'] && typeof csrfToken !== 'undefined' && csrfToken) {
+            options.headers['X-CSRF-TOKEN'] = csrfToken;
+          }
+        }
+      }
+      return originalFetch(url, options);
+    };
+
+    // Lucide Icon safety fallback
+    if (typeof lucide === 'undefined') {
+      window.lucide = {
+        createIcons: function() {
+          console.warn("Lucide icons are unavailable (offline/CDN error).");
+        }
+      };
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const pin = urlParams.get('pin') || '';
 

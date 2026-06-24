@@ -1,7 +1,39 @@
 <?php
 // api.php
 header("Content-Type: application/json");
-session_start();
+
+// Configure secure session cookies and start session
+if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.use_only_cookies', 1);
+    session_start();
+}
+
+// Generate CSRF token if not set
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+// Perform CSRF protection check for state-changing operations
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
+$writeActions = [
+    'create_quiz', 'delete_quiz', 'delete_session', 'update_session_settings', 
+    'start_session', 'end_session', 'save_settings', 'reset_system', 
+    'apply_audio_settings', 'upload_audio', 'rename_audio', 'delete_audio',
+    'upload_category_audio'
+];
+
+if (in_array($action, $writeActions) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Read JSON input or POST fields
+    $inputData = json_decode(file_get_contents('php://input'), true) ?? [];
+    $clientToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $inputData['csrf_token'] ?? $_POST['csrf_token'] ?? '';
+    
+    if (empty($clientToken) || $clientToken !== ($_SESSION['csrf_token'] ?? '')) {
+        header("HTTP/1.1 403 Forbidden");
+        echo json_encode(['error' => 'CSRF token validation failed.']);
+        exit;
+    }
+}
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/gemini_ai.php';
@@ -181,12 +213,39 @@ try {
             $_SESSION['role'] = 'STUDENT';
 
             if (!empty($pin)) {
-                $stmtS = $pdo->prepare("SELECT id FROM quiz_sessions WHERE pin_code = ?");
+                $stmtS = $pdo->prepare("SELECT qs.id, qs.quiz_id, q.title, q.scheduled_start, q.expiry_time, q.attempt_limit FROM quiz_sessions qs JOIN quizzes q ON qs.quiz_id = q.id WHERE qs.pin_code = ?");
                 $stmtS->execute([$pin]);
-                $sessionId = $stmtS->fetchColumn();
-                if ($sessionId) {
+                $session = $stmtS->fetch();
+                
+                if ($session) {
+                    $now = date('Y-m-d H:i:s');
+                    
+                    // 1. Check scheduling start
+                    if (!empty($session['scheduled_start']) && $now < $session['scheduled_start']) {
+                        $response = ['error' => 'This quiz is scheduled to start at ' . date('M d, Y H:i', strtotime($session['scheduled_start']))];
+                        break;
+                    }
+                    
+                    // 2. Check expiry time
+                    if (!empty($session['expiry_time']) && $now > $session['expiry_time']) {
+                        $response = ['error' => 'This quiz session has expired and is no longer accepting responses.'];
+                        break;
+                    }
+
+                    // 3. Check attempt limit
+                    if (intval($session['attempt_limit']) > 0) {
+                        $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM session_participants sp JOIN quiz_sessions qs ON sp.session_id = qs.id WHERE sp.username = ? AND qs.quiz_id = ? AND qs.status = 'FINISHED'");
+                        $stmtCount->execute([$name, $session['quiz_id']]);
+                        $pastAttempts = intval($stmtCount->fetchColumn());
+                        
+                        if ($pastAttempts >= intval($session['attempt_limit'])) {
+                            $response = ['error' => 'Attempt limit reached. You have already completed this quiz.'];
+                            break;
+                        }
+                    }
+
                     $stmtIns = $pdo->prepare("INSERT OR IGNORE INTO session_participants (session_id, username) VALUES (?, ?)");
-                    $stmtIns->execute([$sessionId, $name]);
+                    $stmtIns->execute([$session['id'], $name]);
                 }
             }
 
@@ -203,6 +262,15 @@ try {
             $description = $input['description'] ?? '';
             $timeLimit = intval($input['timeLimit'] ?? 30);
             $questions = $input['questions'] ?? [];
+            $negativeMarking = isset($input['negativeMarking']) ? intval($input['negativeMarking']) : 0;
+            $negativeMarks = isset($input['negativeMarks']) ? intval($input['negativeMarks']) : 0;
+            $category = $input['category'] ?? 'General';
+            $difficulty = $input['difficulty'] ?? 'Medium';
+            $scheduledStart = !empty($input['scheduledStart']) ? $input['scheduledStart'] : null;
+            $expiryTime = !empty($input['expiryTime']) ? $input['expiryTime'] : null;
+            $attemptLimit = isset($input['attemptLimit']) ? intval($input['attemptLimit']) : 0;
+            $shuffleQuestions = isset($input['shuffleQuestions']) ? intval($input['shuffleQuestions']) : 0;
+            $shuffleOptions = isset($input['shuffleOptions']) ? intval($input['shuffleOptions']) : 0;
 
             if (empty($title)) {
                 $response = ['error' => 'Title is required'];
@@ -213,8 +281,8 @@ try {
             // Generate unique pin code
             $pinCode = str_pad(rand(100000, 999999), 6, '0', STR_PAD_LEFT);
             
-            $stmt = $pdo->prepare("INSERT INTO quizzes (title, description, time_limit, pin_code, status) VALUES (?, ?, ?, ?, 'LIVE')");
-            $stmt->execute([$title, $description, $timeLimit, $pinCode]);
+            $stmt = $pdo->prepare("INSERT INTO quizzes (title, description, time_limit, pin_code, status, negative_marking, negative_marks, category, difficulty, scheduled_start, expiry_time, attempt_limit, shuffle_questions, shuffle_options) VALUES (?, ?, ?, ?, 'LIVE', ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$title, $description, $timeLimit, $pinCode, $negativeMarking, $negativeMarks, $category, $difficulty, $scheduledStart, $expiryTime, $attemptLimit, $shuffleQuestions, $shuffleOptions]);
             $quizId = $pdo->lastInsertId();
 
             foreach ($questions as $qIdx => $q) {
@@ -222,8 +290,13 @@ try {
                 $text = $q['text'] ?? '';
                 $points = intval($q['points'] ?? 100);
                 $codingTemplate = $q['codingTemplate'] ?? '';
-                $stmtQ = $pdo->prepare("INSERT INTO questions (quiz_id, type, text, points, time_limit, q_order, coding_template) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $stmtQ->execute([$quizId, $type, $text, $points, $timeLimit, $qIdx, $codingTemplate]);
+                $explanation = $q['explanation'] ?? '';
+                $imagePath = $q['imagePath'] ?? null;
+                $codeSnippet = $q['codeSnippet'] ?? null;
+                $codeLanguage = $q['codeLanguage'] ?? null;
+
+                $stmtQ = $pdo->prepare("INSERT INTO questions (quiz_id, type, text, points, time_limit, q_order, coding_template, explanation, image_path, code_snippet, code_language) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmtQ->execute([$quizId, $type, $text, $points, $timeLimit, $qIdx, $codingTemplate, $explanation, $imagePath, $codeSnippet, $codeLanguage]);
                 $questionId = $pdo->lastInsertId();
 
                 if ($type !== 'CODING_CHALLENGE' && isset($q['options'])) {
@@ -301,8 +374,8 @@ try {
 
             $pdo->beginTransaction();
             $newPin = str_pad(rand(100000, 999999), 6, '0', STR_PAD_LEFT);
-            $stmtInsert = $pdo->prepare("INSERT INTO quizzes (title, description, time_limit, pin_code, status) VALUES (?, ?, ?, ?, 'LIVE')");
-            $stmtInsert->execute([$quiz['title'] . ' (Copy)', $quiz['description'], $quiz['time_limit'], $newPin]);
+            $stmtInsert = $pdo->prepare("INSERT INTO quizzes (title, description, time_limit, pin_code, status, negative_marking, negative_marks, category, difficulty, scheduled_start, expiry_time, attempt_limit, shuffle_questions, shuffle_options) VALUES (?, ?, ?, ?, 'LIVE', ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtInsert->execute([$quiz['title'] . ' (Copy)', $quiz['description'], $quiz['time_limit'], $newPin, $quiz['negative_marking'] ?? 0, $quiz['negative_marks'] ?? 0, $quiz['category'] ?? 'General', $quiz['difficulty'] ?? 'Medium', $quiz['scheduled_start'] ?? null, $quiz['expiry_time'] ?? null, $quiz['attempt_limit'] ?? 0, $quiz['shuffle_questions'] ?? 0, $quiz['shuffle_options'] ?? 0]);
             $newQuizId = $pdo->lastInsertId();
 
             // Duplicate Questions
@@ -311,8 +384,8 @@ try {
             $questions = $stmtQs->fetchAll();
 
             foreach ($questions as $q) {
-                $stmtQIns = $pdo->prepare("INSERT INTO questions (quiz_id, type, text, points, time_limit, q_order, coding_template) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $stmtQIns->execute([$newQuizId, $q['type'], $q['text'], $q['points'], $q['time_limit'], $q['q_order'], $q['coding_template']]);
+                $stmtQIns = $pdo->prepare("INSERT INTO questions (quiz_id, type, text, points, time_limit, q_order, coding_template, explanation, image_path, code_snippet, code_language) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmtQIns->execute([$newQuizId, $q['type'], $q['text'], $q['points'], $q['time_limit'], $q['q_order'], $q['coding_template'], $q['explanation'], $q['image_path'], $q['code_snippet'], $q['code_language']]);
                 $newQuestionId = $pdo->lastInsertId();
 
                 // Duplicate Options
@@ -349,16 +422,32 @@ try {
             $sessionId = intval($_POST['session_id'] ?? $_GET['session_id'] ?? 0);
             $pin = $_POST['pin_code'] ?? $_GET['pin_code'] ?? '';
             
+            $session = null;
             if ($sessionId > 0) {
-                $stmt = $pdo->prepare("DELETE FROM quiz_sessions WHERE id = ?");
+                $stmt = $pdo->prepare("SELECT * FROM quiz_sessions WHERE id = ?");
                 $stmt->execute([$sessionId]);
-                $response = ['success' => true];
+                $session = $stmt->fetch();
             } else if (!empty($pin)) {
-                $stmt = $pdo->prepare("DELETE FROM quiz_sessions WHERE pin_code = ?");
+                $stmt = $pdo->prepare("SELECT * FROM quiz_sessions WHERE pin_code = ?");
                 $stmt->execute([$pin]);
-                $response = ['success' => true];
+                $session = $stmt->fetch();
+            }
+
+            if (!$session) {
+                $response = ['error' => 'Session not found'];
+                break;
+            }
+
+            if (in_array($session['status'], ['LOBBY', 'ACTIVE_QUESTION', 'SHOWING_LEADERBOARD'])) {
+                // Instantly terminate active session by setting status to FINISHED
+                $stmtUp = $pdo->prepare("UPDATE quiz_sessions SET status = 'FINISHED', updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+                $stmtUp->execute([$session['id']]);
+                $response = ['success' => true, 'terminated' => true];
             } else {
-                $response = ['error' => 'Session ID or PIN is required'];
+                // Delete from DB completely (cascading deletes responses & participants)
+                $stmtDel = $pdo->prepare("DELETE FROM quiz_sessions WHERE id = ?");
+                $stmtDel->execute([$session['id']]);
+                $response = ['success' => true, 'deleted' => true];
             }
             break;
 
@@ -408,7 +497,7 @@ try {
             $role = $_SESSION['role'] ?? '';
             
             // Get Session details
-            $stmt = $pdo->prepare("SELECT qs.*, q.title as quiz_title FROM quiz_sessions qs JOIN quizzes q ON qs.quiz_id = q.id WHERE qs.pin_code = ?");
+            $stmt = $pdo->prepare("SELECT qs.*, q.title as quiz_title, q.negative_marking, q.negative_marks, q.shuffle_questions, q.shuffle_options, q.description as quiz_description FROM quiz_sessions qs JOIN quizzes q ON qs.quiz_id = q.id WHERE qs.pin_code = ?");
             $stmt->execute([$pin]);
             $session = $stmt->fetch();
 
@@ -427,6 +516,23 @@ try {
             $stmtQs->execute([$session['quiz_id']]);
             $questions = $stmtQs->fetchAll();
             $totalQs = count($questions);
+
+            // Shuffling logic
+            $shuffleQuestions = intval($session['shuffle_questions'] ?? 0);
+            $shuffleOptions = intval($session['shuffle_options'] ?? 0);
+
+            $participantId = 0;
+            if ($role === 'STUDENT' && !empty($username)) {
+                $stmtPart = $pdo->prepare("SELECT id FROM session_participants WHERE session_id = ? AND username = ?");
+                $stmtPart->execute([$session['id'], $username]);
+                $participantId = intval($stmtPart->fetchColumn() ?: 0);
+            }
+
+            if ($shuffleQuestions && $participantId > 0) {
+                mt_srand($participantId + intval($session['quiz_id']));
+                shuffle($questions);
+                mt_srand();
+            }
 
             // Active Question Check
             $currentQuestion = null;
@@ -526,6 +632,12 @@ try {
                     $stmtO->execute([$q['id']]);
                     $opts = $stmtO->fetchAll();
 
+                    if ($shuffleOptions && $participantId > 0) {
+                        mt_srand($participantId + intval($q['id']));
+                        shuffle($opts);
+                        mt_srand();
+                    }
+
                     $currentQuestion = [
                         'id' => $q['id'],
                         'type' => $q['type'],
@@ -533,6 +645,9 @@ try {
                         'points' => $q['points'],
                         'time_limit' => $timeLimit,
                         'coding_template' => $q['coding_template'],
+                        'image_path' => $q['image_path'],
+                        'code_snippet' => $q['code_snippet'],
+                        'code_language' => $q['code_language'],
                         'options' => $opts
                     ];
                 }
@@ -541,6 +656,9 @@ try {
             $response = [
                 'status' => $studentStatus,
                 'quiz_title' => $session['quiz_title'],
+                'quiz_description' => $session['quiz_description'] ?? '',
+                'negative_marking' => intval($session['negative_marking'] ?? 0),
+                'negative_marks' => intval($session['negative_marks'] ?? 0),
                 'current_question_index' => $studentQuestionIndex,
                 'players' => $players,
                 'current_question' => $currentQuestion,
@@ -657,7 +775,14 @@ try {
                 $correctRank = 0; // Keeping variable for answer_rank compatibility
             } else {
                 $streak = 0;
-                $scoreEarned = 0;
+                $stmtQuiz = $pdo->prepare("SELECT negative_marking, negative_marks FROM quizzes WHERE id = ?");
+                $stmtQuiz->execute([$question['quiz_id']]);
+                $quiz = $stmtQuiz->fetch();
+                if ($quiz && intval($quiz['negative_marking']) === 1) {
+                    $scoreEarned = -intval($quiz['negative_marks']);
+                } else {
+                    $scoreEarned = 0;
+                }
             }
 
             $newScore = intval($participant['score']) + $scoreEarned;
@@ -994,9 +1119,39 @@ try {
             break;
 
         case 'get_dashboard_stats':
-            // Recent Quizzes
-            $stmtQuizzes = $pdo->query("SELECT title, pin_code, created_at FROM quizzes ORDER BY id DESC LIMIT 5");
-            $recentQuizzes = $stmtQuizzes->fetchAll();
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+
+            // 1. Total Sessions
+            $totalSessions = intval($pdo->query("SELECT COUNT(*) FROM quiz_sessions")->fetchColumn());
+
+            // 2. Total Students
+            $totalStudents = intval($pdo->query("SELECT COUNT(DISTINCT username) FROM session_participants")->fetchColumn());
+
+            // 3. Average Score
+            $avgScore = floatval($pdo->query("SELECT AVG(score) FROM session_participants")->fetchColumn() ?: 0);
+
+            // 4. Pass Rate
+            $totalResps = intval($pdo->query("SELECT COUNT(*) FROM session_responses")->fetchColumn());
+            $correctResps = intval($pdo->query("SELECT COUNT(*) FROM session_responses WHERE is_correct = 1")->fetchColumn());
+            $passRate = $totalResps > 0 ? ($correctResps * 100.0 / $totalResps) : 0;
+
+            // 5. Active Rooms
+            $activeRooms = intval($pdo->query("SELECT COUNT(*) FROM quiz_sessions WHERE status IN ('LOBBY', 'ACTIVE_QUESTION', 'SHOWING_LEADERBOARD')")->fetchColumn());
+
+            // 6. Top Categories
+            $stmtCats = $pdo->query("SELECT category, COUNT(*) as count FROM quizzes GROUP BY category ORDER BY count DESC LIMIT 5");
+            $topCategories = $stmtCats->fetchAll();
+
+            // 7. Daily Activity (Last 7 days)
+            $stmtDaily = $pdo->query("SELECT DATE(created_at) as date, COUNT(*) as count FROM quiz_sessions GROUP BY date ORDER BY date DESC LIMIT 7");
+            $dailyActivity = $stmtDaily->fetchAll();
+
+            // 8. Monthly Growth (Last 6 months)
+            $stmtMonthly = $pdo->query("SELECT STRFTIME('%Y-%m', created_at) as month, COUNT(*) as count FROM quiz_sessions GROUP BY month ORDER BY month DESC LIMIT 6");
+            $monthlyGrowth = $stmtMonthly->fetchAll();
 
             // Top Ranking Students
             $stmtTop = $pdo->query("SELECT username, SUM(score) as total_points, COUNT(session_id) as sessions_played FROM session_participants GROUP BY username ORDER BY total_points DESC LIMIT 5");
@@ -1025,7 +1180,15 @@ try {
             }
 
             $response = [
-                'recent_quizzes' => $recentQuizzes,
+                'success' => true,
+                'total_sessions' => $totalSessions,
+                'total_students' => $totalStudents,
+                'avg_score' => $avgScore,
+                'pass_rate' => $passRate,
+                'active_rooms' => $activeRooms,
+                'top_categories' => $topCategories,
+                'daily_activity' => $dailyActivity,
+                'monthly_growth' => $monthlyGrowth,
                 'top_students' => $topStudents,
                 'student_marks' => $studentMarks,
                 'accuracy_stats' => $accuracyStats
@@ -1070,9 +1233,37 @@ try {
                 break;
             }
 
-            $stmtP = $pdo->prepare("SELECT username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY score DESC");
+            $stmtP = $pdo->prepare("SELECT id, username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY score DESC");
             $stmtP->execute([$sessionId]);
-            $response = $stmtP->fetchAll();
+            $rawPodium = $stmtP->fetchAll();
+
+            $podium = [];
+            foreach ($rawPodium as $row) {
+                // Correct count
+                $stmtC = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND participant_id = ? AND is_correct = 1");
+                $stmtC->execute([$sessionId, $row['id']]);
+                $correctCount = intval($stmtC->fetchColumn());
+
+                // Total answered
+                $stmtT = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND participant_id = ?");
+                $stmtT->execute([$sessionId, $row['id']]);
+                $totalAnswered = intval($stmtT->fetchColumn());
+
+                // Avg speed
+                $stmtSpeed = $pdo->prepare("SELECT AVG(response_time_ms) FROM session_responses WHERE session_id = ? AND participant_id = ? AND response_time_ms > 0");
+                $stmtSpeed->execute([$sessionId, $row['id']]);
+                $avgSpeedMs = floatval($stmtSpeed->fetchColumn() ?: 0);
+
+                $podium[] = [
+                    'name' => $row['name'],
+                    'score' => intval($row['score']),
+                    'streak' => intval($row['streak']),
+                    'correct_count' => $correctCount,
+                    'total_answered' => $totalAnswered,
+                    'avg_speed_ms' => $avgSpeedMs
+                ];
+            }
+            $response = $podium;
             break;
 
         case 'get_quiz_history':
@@ -1088,7 +1279,62 @@ try {
             $response = $history;
             break;
 
+        case 'get_session_history':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            $search = $_GET['search'] ?? '';
+            $page = max(1, intval($_GET['page'] ?? 1));
+            $limit = max(1, intval($_GET['limit'] ?? 6));
+            $offset = ($page - 1) * $limit;
+
+            $params = [];
+            $where = "WHERE qs.status = 'FINISHED'";
+            if (!empty($search)) {
+                $where .= " AND (q.title LIKE ? OR qs.pin_code LIKE ?)";
+                $params[] = "%$search%";
+                $params[] = "%$search%";
+            }
+
+            // Total count
+            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM quiz_sessions qs JOIN quizzes q ON qs.quiz_id = q.id $where");
+            $stmtCount->execute($params);
+            $totalCount = intval($stmtCount->fetchColumn());
+
+            // Paginated history
+            $stmt = $pdo->prepare("SELECT qs.id, qs.pin_code, qs.status, qs.quiz_id, qs.created_at, qs.updated_at, q.title as quiz_title FROM quiz_sessions qs JOIN quizzes q ON qs.quiz_id = q.id $where ORDER BY qs.updated_at DESC LIMIT $limit OFFSET $offset");
+            $stmt->execute($params);
+            $sessions = $stmt->fetchAll();
+
+            foreach ($sessions as &$sess) {
+                // Top 3
+                $stmtB = $pdo->prepare("SELECT username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY score DESC LIMIT 3");
+                $stmtB->execute([$sess['id']]);
+                $sess['leaderboard'] = $stmtB->fetchAll();
+
+                // Player count
+                $stmtCnt = $pdo->prepare("SELECT COUNT(*) FROM session_participants WHERE session_id = ?");
+                $stmtCnt->execute([$sess['id']]);
+                $sess['total_players'] = intval($stmtCnt->fetchColumn());
+            }
+
+            $response = [
+                'success' => true,
+                'sessions' => $sessions,
+                'total_count' => $totalCount,
+                'page' => $page,
+                'limit' => $limit,
+                'total_pages' => ceil($totalCount / $limit)
+            ];
+            break;
+
         case 'get_active_sessions':
+            // Auto-clean stale active sessions (updated more than 2 hours ago)
+            $twoHoursAgo = date('Y-m-d H:i:s', time() - 7200);
+            $stmtClean = $pdo->prepare("UPDATE quiz_sessions SET status = 'FINISHED', updated_at = CURRENT_TIMESTAMP WHERE status IN ('LOBBY', 'ACTIVE_QUESTION', 'SHOWING_LEADERBOARD') AND updated_at < ?");
+            $stmtClean->execute([$twoHoursAgo]);
+
             $stmtS = $pdo->query("SELECT qs.id, qs.pin_code, qs.status, qs.quiz_id, qs.current_question_index, qs.active_question_start, q.title, q.time_limit, qs.updated_at FROM quiz_sessions qs JOIN quizzes q ON q.id = qs.quiz_id WHERE qs.status IN ('LOBBY', 'ACTIVE_QUESTION', 'SHOWING_LEADERBOARD') ORDER BY qs.id DESC");
             $live = [];
             while ($row = $stmtS->fetch()) {
@@ -1215,6 +1461,55 @@ try {
                 }
             }
             $response = ['success' => true, 'files' => $audioFiles];
+            break;
+
+        case 'upload_question_image':
+            if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'ADMIN') {
+                $response = ['error' => 'Unauthorized'];
+                break;
+            }
+            if (!isset($_FILES['question_image']) || $_FILES['question_image']['error'] !== UPLOAD_ERR_OK) {
+                $response = ['error' => 'Upload failed'];
+                break;
+            }
+            $file = $_FILES['question_image'];
+            $maxSize = 5 * 1024 * 1024; // 5 MB
+            if ($file['size'] > $maxSize) {
+                $response = ['error' => 'File too large (max 5MB)'];
+                break;
+            }
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
+                $response = ['error' => 'Invalid image format (only jpg, png, webp allowed)'];
+                break;
+            }
+            
+            // Check mime type
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+            
+            if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'])) {
+                $response = ['error' => 'Invalid image content (MIME type mismatch)'];
+                break;
+            }
+
+            $dir = __DIR__ . '/assets/images/uploads/';
+            if (!is_dir($dir)) {
+                mkdir($dir, 0777, true);
+            }
+
+            $safeName = uniqid('q_img_', true) . '.' . $ext;
+            $dest = $dir . $safeName;
+
+            if (move_uploaded_file($file['tmp_name'], $dest)) {
+                $response = [
+                    'success' => true,
+                    'image_path' => 'assets/images/uploads/' . $safeName
+                ];
+            } else {
+                $response = ['error' => 'Could not save file'];
+            }
             break;
 
         case 'upload_audio':
@@ -1484,14 +1779,44 @@ try {
                 }
             }
 
-            // Fetch overall leaderboard
-            $stmtBoard = $pdo->prepare("SELECT username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY score DESC LIMIT 5");
+            // Fetch overall leaderboard with correctness stats and response times
+            $stmtBoard = $pdo->prepare("SELECT id, username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY score DESC LIMIT 5");
             $stmtBoard->execute([$session['id']]);
-            $leaderboard = $stmtBoard->fetchAll();
+            $rawLeaderboard = $stmtBoard->fetchAll();
+
+            $leaderboard = [];
+            foreach ($rawLeaderboard as $row) {
+                // Correct count
+                $stmtC = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND participant_id = ? AND is_correct = 1");
+                $stmtC->execute([$session['id'], $row['id']]);
+                $correctCount = intval($stmtC->fetchColumn());
+
+                // Total answered
+                $stmtT = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND participant_id = ?");
+                $stmtT->execute([$session['id'], $row['id']]);
+                $totalAnswered = intval($stmtT->fetchColumn());
+
+                // Avg speed
+                $stmtSpeed = $pdo->prepare("SELECT AVG(response_time_ms) FROM session_responses WHERE session_id = ? AND participant_id = ? AND response_time_ms > 0");
+                $stmtSpeed->execute([$session['id'], $row['id']]);
+                $avgSpeedMs = floatval($stmtSpeed->fetchColumn() ?: 0);
+
+                $leaderboard[] = [
+                    'name' => $row['name'],
+                    'score' => intval($row['score']),
+                    'streak' => intval($row['streak']),
+                    'correct_count' => $correctCount,
+                    'total_answered' => $totalAnswered,
+                    'avg_speed_ms' => $avgSpeedMs
+                ];
+            }
 
             $response = [
                 'correct_answers' => $correctOptions,
                 'explanation' => $q['explanation'] ?: 'No explanation provided.',
+                'image_path' => $q['image_path'] ?? null,
+                'code_snippet' => $q['code_snippet'] ?? null,
+                'code_language' => $q['code_language'] ?? null,
                 'student_score' => $studentScore,
                 'leaderboard' => $leaderboard
             ];
