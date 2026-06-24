@@ -321,6 +321,8 @@ try {
     let intervalId = null;
     let answerLocked = false;
     let activeQuestionId = 0;
+    let initialSyncDone = false;
+    let lastQuestionIndex = -1;
 
     window.addEventListener('load', () => {
       sound.playLobby();
@@ -390,16 +392,18 @@ try {
             }
             if (data.is_paused === 1) {
               document.getElementById('countdown-text').innerText = `[Paused] ${data.time_left}s Left`;
-              sound.stopKBCMusic();
+              sound.stopCountdown();
             } else {
               document.getElementById('countdown-text').innerText = `${data.time_left}s Left`;
               if (!answerLocked && !data.already_answered) {
-                sound.playCountdown(data.time_left, data.current_question_index);
+                sound.playCountdown(data.time_left, !initialSyncDone);
               } else {
-                sound.stopKBCMusic();
+                sound.stopCountdown();
               }
             }
           }
+          
+          initialSyncDone = true;
         });
     }
 
@@ -408,8 +412,6 @@ try {
       const q = data.current_question;
       if (!q) return;
       activeQuestionId = q.id;
-
-      sound.playReveal();
 
       document.getElementById('active-q-text').innerText = q.text;
       document.getElementById('active-q-index').innerText = `Question ${data.current_question_index + 1}`;
@@ -471,16 +473,26 @@ try {
       }
 
       // Audio loops controls
-      if (newState === 'LOBBY') sound.playLobby();
-      else if (newState === 'FINISHED') {
-        sound.playWinner();
-        sound.playTrophy();
-        sound.playConfetti();
+      if (newState === 'LOBBY') {
+        sound.playLobby();
+      } else if (newState === 'FINISHED') {
+        sound.playLeaderboard();
         loadFinalStandings();
         clearInterval(intervalId); // stop polling on conclude
       } else if (newState === 'SHOWING_LEADERBOARD') {
         sound.stopAll(true);
-        sound.playLeaderboardReveal();
+      } else if (newState === 'ACTIVE_QUESTION') {
+        if (lastQuestionIndex === -1) {
+          if (initialSyncDone) {
+            sound.playStart();
+          }
+          lastQuestionIndex = data.current_question_index;
+        } else if (data.current_question_index > lastQuestionIndex) {
+          if (initialSyncDone) {
+            sound.playNextQuestion();
+          }
+          lastQuestionIndex = data.current_question_index;
+        }
       } else {
         sound.stopAll();
       }
@@ -731,11 +743,13 @@ try {
               banner.className = "p-5 rounded-2xl text-center border-2 font-black text-xl bg-red-500/10 text-red-700 border-red-500/30 backdrop-blur-md";
               const penaltyText = scoreEarned < 0 ? ` (${scoreEarned} pts)` : ` (+0 pts)`;
               banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="x-circle" class="w-6 h-6"></i> Incorrect Answer${penaltyText}</span>`;
-              sound.playWrong();
             }
           } else {
             banner.className = "p-5 rounded-2xl text-center border-2 font-black text-xl bg-slate-500/10 text-slate-700 border-slate-500/30 backdrop-blur-md";
             banner.innerText = `Time Expired!`;
+            if (initialSyncDone) {
+              sound.playTimeout();
+            }
           }
 
           // Update explanation context image

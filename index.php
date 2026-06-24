@@ -697,27 +697,15 @@ if (empty($_SESSION['csrf_token'])) {
     let uploadedAudioFiles = [];
 
     const AUDIO_CATEGORIES_METADATA = {
-      lobby: { label: "Lobby Music", type: "music", loopable: true, default_file: "SYNTH_LOBBY", desc: "Played in lobby before quiz starts" },
-      start: { label: "Quiz Start Music", type: "music", loopable: false, default_file: "assets/audio/chalo.mp3", desc: "Plays when host starts the quiz" },
-      reveal: { label: "Question Reveal Sound", type: "effect", loopable: false, default_file: "SYNTH_REVEAL", desc: "Plays when a new question appears" },
-      background: { label: "Question Background Music", type: "music", loopable: true, default_file: "SYNTH_KAHOOT_QUESTION", desc: "Played while students solve questions" },
-      countdown: { label: "Final Countdown Music", type: "music", loopable: false, default_file: "SYNTH_FINAL_COUNTDOWN", desc: "Starts when timer reaches last 10 seconds" },
-      submit: { label: "Answer Submitted Sound", type: "effect", loopable: false, default_file: "SYNTH_KAHOOT_LOCKED", desc: "Plays when student submits answer" },
-      correct: { label: "Correct Answer Sound", type: "effect", loopable: false, default_file: "SYNTH_CORRECT", desc: "Plays immediately when answer is correct" },
-      wrong: { label: "Wrong Answer Sound", type: "effect", loopable: false, default_file: "SYNTH_KAHOOT_WRONG", desc: "Plays immediately when answer is incorrect" },
-      timeout: { label: "Time Expired Sound", type: "effect", loopable: false, default_file: "SYNTH_TIMEOUT", desc: "Plays when question timer reaches zero" },
-      next_question: { label: "Next Question Sound", type: "effect", loopable: false, default_file: "SYNTH_NEXT", desc: "Plays when transitioning to next question" },
-      leaderboard: { label: "Leaderboard Reveal Music", type: "music", loopable: false, default_file: "SYNTH_LEADERBOARD", desc: "Plays when showing the leaderboard" },
-      winner: { label: "Winner Music", type: "music", loopable: false, default_file: "SYNTH_VICTORY", desc: "Plays when announcing the grand winner" },
-      top3: { label: "Top 3 Reveal Music", type: "music", loopable: false, default_file: "SYNTH_TOP3", desc: "Plays while showing Top 3 winners" },
-      trophy: { label: "Trophy Sound", type: "effect", loopable: false, default_file: "SYNTH_TROPHY", desc: "Plays during trophy animations" },
-      fireworks: { label: "Fireworks Sound", type: "effect", loopable: false, default_file: "SYNTH_FIREWORKS", desc: "Plays during fireworks celebration" },
-      confetti: { label: "Confetti Sound", type: "effect", loopable: false, default_file: "SYNTH_CONFETTI", desc: "Plays during confetti effects" },
-      join: { label: "Participant Joined Sound", type: "effect", loopable: false, default_file: "SYNTH_JOIN", desc: "Plays when a participant joins lobby" },
-      leave: { label: "Participant Left Sound", type: "effect", loopable: false, default_file: "SYNTH_LEAVE", desc: "Plays when a participant leaves lobby" },
-      click: { label: "Button Click Sound", type: "effect", loopable: false, default_file: "SYNTH_CLICK", desc: "Plays on student/host button interactions" },
-      completion: { label: "Quiz Completion Music", type: "music", loopable: false, default_file: "SYNTH_COMPLETION", desc: "Plays after the entire quiz completes" },
-      q_countdown: { label: "Question Countdown Music", type: "music", loopable: true, default_file: "SYNTH_QUESTION_COUNTDOWN", desc: "Played immediately after a question is displayed", fade: true }
+      lobby: { label: "Lobby Music", type: "music", loopable: true, default_file: "SYNTH_LOBBY", desc: "Played continuously while students enter codes and wait in lobby" },
+      start: { label: "Quiz Start Music", type: "music", loopable: false, default_file: "assets/audio/chalo.mp3", desc: "Plays once immediately when the quiz starts" },
+      next_question: { label: "Next Question Sound", type: "effect", loopable: false, default_file: "SYNTH_NEXT", desc: "Plays once every time a new question appears" },
+      countdown: { label: "Countdown Music", type: "music", loopable: false, default_file: "SYNTH_FINAL_COUNTDOWN", desc: "Starts during the last 10 seconds of each question" },
+      submit: { label: "Answer Locked Sound", type: "effect", loopable: false, default_file: "SYNTH_KAHOOT_LOCKED", desc: "Plays immediately when a participant locks an answer" },
+      correct: { label: "Correct Answer Sound", type: "effect", loopable: false, default_file: "SYNTH_CORRECT", desc: "Plays immediately when selected answer is correct" },
+      wrong: { label: "Wrong Answer Sound", type: "effect", loopable: false, default_file: "SYNTH_KAHOOT_WRONG", desc: "Plays immediately when selected answer is incorrect" },
+      timeout: { label: "Time Expired Sound", type: "effect", loopable: false, default_file: "SYNTH_TIMEOUT", desc: "Plays once when timer reaches 0 and no answer was submitted" },
+      leaderboard: { label: "Final Leaderboard Reveal Music", type: "music", loopable: false, default_file: "SYNTH_LEADERBOARD", desc: "Plays when final leaderboard/podium is displayed" }
     };
 
     function getDefaultAudioSettings() {
@@ -731,25 +719,13 @@ if (empty($_SESSION['csrf_token'])) {
         categories: {
           lobby: { enabled: true, file_path: "SYNTH_LOBBY", volume: 0.8, loop: true },
           start: { enabled: true, file_path: "assets/audio/chalo.mp3", volume: 0.8, loop: false },
-          reveal: { enabled: true, file_path: "SYNTH_REVEAL", volume: 0.8, loop: false },
-          background: { enabled: true, file_path: "SYNTH_KAHOOT_QUESTION", volume: 0.8, loop: true },
+          next_question: { enabled: true, file_path: "SYNTH_NEXT", volume: 0.8, loop: false },
           countdown: { enabled: true, file_path: "SYNTH_FINAL_COUNTDOWN", volume: 0.8, loop: false },
           submit: { enabled: true, file_path: "SYNTH_KAHOOT_LOCKED", volume: 0.8, loop: false },
           correct: { enabled: true, file_path: "SYNTH_CORRECT", volume: 0.8, loop: false },
           wrong: { enabled: true, file_path: "SYNTH_KAHOOT_WRONG", volume: 0.8, loop: false },
           timeout: { enabled: true, file_path: "SYNTH_TIMEOUT", volume: 0.8, loop: false },
-          next_question: { enabled: true, file_path: "SYNTH_NEXT", volume: 0.8, loop: false },
-          leaderboard: { enabled: true, file_path: "SYNTH_LEADERBOARD", volume: 0.8, loop: false },
-          winner: { enabled: true, file_path: "SYNTH_VICTORY", volume: 0.8, loop: false },
-          top3: { enabled: true, file_path: "SYNTH_TOP3", volume: 0.8, loop: false },
-          trophy: { enabled: true, file_path: "SYNTH_TROPHY", volume: 0.8, loop: false },
-          fireworks: { enabled: true, file_path: "SYNTH_FIREWORKS", volume: 0.8, loop: false },
-          confetti: { enabled: true, file_path: "SYNTH_CONFETTI", volume: 0.8, loop: false },
-          join: { enabled: true, file_path: "SYNTH_JOIN", volume: 0.8, loop: false },
-          leave: { enabled: true, file_path: "SYNTH_LEAVE", volume: 0.8, loop: false },
-          click: { enabled: true, file_path: "SYNTH_CLICK", volume: 0.8, loop: false },
-          completion: { enabled: true, file_path: "SYNTH_COMPLETION", volume: 0.8, loop: false },
-          q_countdown: { enabled: true, file_path: "SYNTH_QUESTION_COUNTDOWN", volume: 0.8, loop: true, fade: true }
+          leaderboard: { enabled: true, file_path: "SYNTH_LEADERBOARD", volume: 0.8, loop: false }
         }
       };
     }
@@ -849,7 +825,7 @@ if (empty($_SESSION['csrf_token'])) {
     }
 
     function quickToggleMusic(enabled) {
-      const musicKeys = ['lobby', 'start', 'background', 'countdown', 'leaderboard', 'winner', 'top3', 'completion', 'q_countdown'];
+      const musicKeys = ['lobby', 'start', 'countdown', 'leaderboard'];
       musicKeys.forEach(k => {
         if (currentAudioConfig.categories[k]) {
           currentAudioConfig.categories[k].enabled = enabled;

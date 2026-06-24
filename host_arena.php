@@ -382,6 +382,8 @@ if (empty($_SESSION['csrf_token'])) {
     let manualMuted = false;
     let autoNextTimeout = null;
     let autoNextInterval = null;
+    let initialSyncDone = false;
+    let lastQuestionIndex = -1;
 
     // Load initial sounds and poll
     window.addEventListener('load', () => {
@@ -477,11 +479,13 @@ if (empty($_SESSION['csrf_token'])) {
           } else if (data.status === 'ACTIVE_QUESTION') {
             refreshActiveQuestion(data);
             if (data.is_paused === 1) {
-              sound.stopAllQuestionMusic();
+              sound.stopCountdown();
             } else {
-              sound.playCountdown(data.time_left);
+              sound.playCountdown(data.time_left, !initialSyncDone);
             }
           }
+          
+          initialSyncDone = true;
         });
     }
 
@@ -515,19 +519,28 @@ if (empty($_SESSION['csrf_token'])) {
       }
 
       // Audio loops controls
-      if (newState === 'LOBBY') sound.playLobby();
-      else if (newState === 'FINISHED') {
-        sound.playWinner();
-        sound.playTrophy();
-        sound.playConfetti();
+      if (newState === 'LOBBY') {
+        sound.playLobby();
+      } else if (newState === 'FINISHED') {
+        sound.playLeaderboard();
         loadPodiumStandings();
         clearInterval(intervalId); // stop polling on completion
       } else if (newState === 'SHOWING_LEADERBOARD') {
         sound.stopAll(true);
-        sound.playLeaderboardReveal();
+      } else if (newState === 'ACTIVE_QUESTION') {
+        if (lastQuestionIndex === -1) {
+          if (initialSyncDone) {
+            sound.playStart();
+          }
+          lastQuestionIndex = data.current_question_index;
+        } else if (data.current_question_index > lastQuestionIndex) {
+          if (initialSyncDone) {
+            sound.playNextQuestion();
+          }
+          lastQuestionIndex = data.current_question_index;
+        }
       } else {
-        const forceStop = (newState === 'SHOWING_LEADERBOARD');
-        sound.stopAll(forceStop);
+        sound.stopAll();
       }
 
       // Initialize State View
@@ -561,13 +574,6 @@ if (empty($_SESSION['csrf_token'])) {
       const startBtn = document.getElementById('start-btn');
 
       const currentCount = players ? players.length : 0;
-      if (currentState === 'LOBBY') {
-        if (currentCount > lastPlayersCount) {
-          sound.playJoin();
-        } else if (currentCount < lastPlayersCount) {
-          sound.playLeave();
-        }
-      }
       lastPlayersCount = currentCount;
 
       countSpan.innerText = currentCount;
@@ -843,7 +849,6 @@ if (empty($_SESSION['csrf_token'])) {
     }
 
     function startQuiz() {
-      sound.playStartSequence();
       const fd = new FormData();
       fd.append('pin_code', pin);
       fetch('api.php?action=start_session', { method: 'POST', body: fd }).then(() => pollLobby());

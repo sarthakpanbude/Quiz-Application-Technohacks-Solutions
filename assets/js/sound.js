@@ -3,26 +3,19 @@ class SoundSynth {
     this.ctx = null;
     this.audioConfig = null;
     this.playingTracks = {};
-    this.lobbyInterval = null;
-    this.kahootPlaying = false;
-    this.kahootTimeout = null;
     this.isMuted = false;
     this.audioCache = {};
+    this.hasPlayedTimeout = false;
 
-    // Initial load of global audio settings
-    fetch('api.php?action=get_quiz_audio_settings&quiz_id=0')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          this.setAudioConfig(data.audio_config);
-        }
-      }).catch(e => console.log('Error initializing sound config:', e));
+    console.log("[SoundSynth] Initializing audio manager...");
+    this.reloadTracks();
   }
 
   setAudioConfig(config) {
     if (!config) return;
     this.audioConfig = config;
     this.isMuted = !!config.global.mute_all;
+    console.log("[SoundSynth] Configuration updated. Mute state:", this.isMuted);
 
     // Update active loop states or volumes of currently playing tracks
     for (const key in this.playingTracks) {
@@ -59,20 +52,39 @@ class SoundSynth {
   }
 
   getCategoryType(key) {
-    const musicKeys = ['lobby', 'start', 'background', 'countdown', 'leaderboard', 'winner', 'top3', 'completion', 'q_countdown'];
+    const musicKeys = ['lobby', 'start', 'countdown', 'leaderboard'];
     return musicKeys.includes(key) ? 'music' : 'effect';
   }
 
   playCategory(key) {
-    if (!this.audioConfig) return;
+    console.log(`[SoundSynth] Triggered playCategory for: "${key}"`);
+    if (!this.audioConfig) {
+      console.warn(`[SoundSynth] Config not loaded yet for category: ${key}`);
+      return;
+    }
 
     const catConfig = this.audioConfig.categories[key];
-    if (!catConfig || !catConfig.enabled || this.isMuted) return;
+    if (!catConfig) {
+      console.warn(`[SoundSynth] Category config missing for: ${key}`);
+      return;
+    }
+    if (!catConfig.enabled) {
+      console.log(`[SoundSynth] Category is disabled in settings: ${key}`);
+      return;
+    }
+    if (this.isMuted) {
+      console.log(`[SoundSynth] Playback skipped because mute is enabled: ${key}`);
+      return;
+    }
 
     const path = catConfig.file_path;
     const volume = this.resolveVolume(key);
-    if (volume <= 0) return;
+    if (volume <= 0) {
+      console.log(`[SoundSynth] Playback skipped due to zero resolved volume for: ${key}`);
+      return;
+    }
 
+    console.log(`[SoundSynth] Playing: "${key}" | Path: "${path}" | Volume: ${volume}`);
     if (path.startsWith('SYNTH_')) {
       this.playSynthSound(key, path, volume, !!catConfig.loop);
     } else {
@@ -94,7 +106,7 @@ class SoundSynth {
     audio.muted = false;
     audio.currentTime = 0;
     
-    audio.play().catch(e => console.log(`Playback prevented for category ${key}:`, e));
+    audio.play().catch(e => console.error(`[SoundSynth] Audio element playback failed for ${key}:`, e));
     this.playingTracks[key] = audio;
   }
 
@@ -138,42 +150,55 @@ class SoundSynth {
       this.playingTracks['lobby'] = setInterval(playNote, 250);
       playNote();
 
-    } else if (key === 'background' || key === 'q_countdown') {
-      this.kahootPlaying = true;
-      const bpm = 125;
-      const stepDuration = 60 / bpm / 2;
-      let nextNoteTime = ctx.currentTime;
+    } else if (key === 'start') {
+      // Fanfare: rising major chord sequence
+      const notes = [261.63, 329.63, 392.00, 523.25];
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, time + idx * 0.1);
+        gain.gain.setValueAtTime(volume * 0.2, time + idx * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + idx * 0.1 + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(time + idx * 0.1);
+        osc.stop(time + idx * 0.1 + 0.35);
+      });
+
+    } else if (key === 'next_question') {
+      // Simple double-beep high chime
+      [587.33, 880.00].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, time + idx * 0.08);
+        gain.gain.setValueAtTime(volume * 0.15, time + idx * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + idx * 0.08 + 0.2);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(time + idx * 0.08);
+        osc.stop(time + idx * 0.08 + 0.25);
+      });
+
+    } else if (key === 'countdown') {
       let step = 0;
-
-      const melody = [
-        329.63, 0, 392.00, 329.63, 0, 293.66, 440.00, 329.63,
-        329.63, 0, 392.00, 440.00, 523.25, 440.00, 392.00, 329.63
-      ];
-      const bassline = [
-        110.00, 110.00, 130.81, 110.00, 98.00, 98.00, 110.00, 110.00,
-        110.00, 110.00, 130.81, 110.00, 146.83, 146.83, 130.81, 98.00
-      ];
-
-      const scheduler = () => {
-        if (!this.kahootPlaying || this.isMuted) return;
-        while (nextNoteTime < ctx.currentTime + 0.1) {
-          this.scheduleKahootNote(step, nextNoteTime, melody[step % 16], bassline[step % 16], volume);
-          nextNoteTime += stepDuration;
-          step++;
-        }
-        this.kahootTimeout = setTimeout(scheduler, 25);
+      const playTick = () => {
+        if (!this.playingTracks['countdown'] || this.isMuted) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(step % 2 === 0 ? 880 : 440, ctx.currentTime);
+        gain.gain.setValueAtTime(volume * 0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+        step++;
       };
-
-      this.playingTracks[key] = {
-        stop: () => {
-          this.kahootPlaying = false;
-          if (this.kahootTimeout) {
-            clearTimeout(this.kahootTimeout);
-            this.kahootTimeout = null;
-          }
-        }
-      };
-      scheduler();
+      this.playingTracks['countdown'] = setInterval(playTick, 1000);
+      playTick();
 
     } else if (key === 'submit') {
       const osc = ctx.createOscillator();
@@ -233,64 +258,21 @@ class SoundSynth {
       osc.start(time);
       osc.stop(time + 1.2);
 
-    } else if (key === 'countdown') {
-      let step = 0;
-      const playTick = () => {
-        if (!this.playingTracks['countdown'] || this.isMuted) return;
+    } else if (key === 'leaderboard') {
+      // Grand victory theme: sweeping upward notes
+      const notes = [329.63, 392.00, 523.25, 659.25, 783.99];
+      notes.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(step % 2 === 0 ? 880 : 440, ctx.currentTime);
-        gain.gain.setValueAtTime(volume * 0.15, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, time + idx * 0.15);
+        gain.gain.setValueAtTime(volume * 0.25, time + idx * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + idx * 0.15 + 0.5);
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.12);
-        step++;
-      };
-      this.playingTracks['countdown'] = setInterval(playTick, 1000);
-      playTick();
-
-    } else {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(330, time);
-      gain.gain.setValueAtTime(volume * 0.15, time);
-      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(time);
-      osc.stop(time + 0.2);
-    }
-  }
-
-  scheduleKahootNote(step, time, melFreq, bassFreq, volume) {
-    const ctx = this.ctx;
-    if (bassFreq > 0) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(bassFreq, time);
-      gain.gain.setValueAtTime(volume * 0.12, time);
-      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(time);
-      osc.stop(time + 0.25);
-    }
-    if (melFreq > 0 && (step % 2 === 0 || step % 3 === 0)) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(melFreq, time);
-      gain.gain.setValueAtTime(volume * 0.08, time);
-      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(time);
-      osc.stop(time + 0.2);
+        osc.start(time + idx * 0.15);
+        osc.stop(time + idx * 0.15 + 0.6);
+      });
     }
   }
 
@@ -315,28 +297,20 @@ class SoundSynth {
         track.stop();
       }
       delete this.playingTracks[key];
+      console.log(`[SoundSynth] Stopped category: "${key}"`);
     }
   }
 
   stopAll(force = false) {
+    console.log(`[SoundSynth] Stopping all sounds (force: ${force})...`);
     for (const key in this.playingTracks) {
       this.stopCategory(key);
     }
-    this.kahootPlaying = false;
-    if (this.kahootTimeout) {
-      clearTimeout(this.kahootTimeout);
-      this.kahootTimeout = null;
-    }
-  }
-
-  stopAllQuestionMusic() {
-    this.stopCategory('q_countdown');
-    this.stopCategory('background');
-    this.stopCategory('countdown');
   }
 
   setMute(mute) {
     this.isMuted = mute;
+    console.log(`[SoundSynth] Mute set to: ${mute}`);
     if (mute) {
       this.stopAll(true);
     }
@@ -347,71 +321,84 @@ class SoundSynth {
   }
 
   reloadTracks() {
-    // Fallback reload helper
     fetch('api.php?action=get_quiz_audio_settings&quiz_id=0')
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           this.setAudioConfig(data.audio_config);
         }
-      });
+      }).catch(e => console.error('[SoundSynth] Error loading config:', e));
   }
 
-  playLobby() { this.playCategory('lobby'); }
-  playStartSequence() { this.playCategory('start'); }
-  playReveal() { this.playCategory('reveal'); }
-  playQuestionMusic() { this.playCategory('background'); }
-  playLocked() { this.playCategory('submit'); }
-  playCorrect() { this.playCategory('correct'); }
-  playWrong() { this.playCategory('wrong'); }
-  playLeaderboardReveal() { this.playCategory('leaderboard'); }
-  playWinner() { this.playCategory('winner'); }
-  playTop3Reveal() { this.playCategory('top3'); }
-  playTrophy() { this.playCategory('trophy'); }
-  playFireworks() { this.playCategory('fireworks'); }
-  playConfetti() { this.playCategory('confetti'); }
-  playJoin() { this.playCategory('join'); }
-  playLeave() { this.playCategory('leave'); }
-  playClick() { this.playCategory('click'); }
-  playQuizCompletion() { this.playCategory('completion'); }
-  playNextQuestion() { this.playCategory('next_question'); }
+  // 9 Explicit Triggers
+  playLobby() { 
+    this.playCategory('lobby'); 
+  }
+  
+  playStart() { 
+    this.hasPlayedTimeout = false;
+    this.stopAll();
+    this.playCategory('start'); 
+  }
 
-  playCountdown(timeLeft) {
+  playNextQuestion() { 
+    this.hasPlayedTimeout = false;
+    this.stopAll();
+    this.playCategory('next_question'); 
+  }
+
+  playCountdown(timeLeft, isInitialSync = false) {
     if (this.isMuted) {
-      this.stopAllQuestionMusic();
+      this.stopCategory('countdown');
       return;
     }
     
-    if (timeLeft > 10) {
+    if (timeLeft <= 10 && timeLeft > 0) {
+      if (!this.playingTracks['countdown']) {
+        this.playCategory('countdown');
+      }
+    } else {
       this.stopCategory('countdown');
-      
-      if (this.audioConfig?.categories['q_countdown']?.enabled) {
-        if (!this.playingTracks['q_countdown']) {
-          this.playCategory('q_countdown');
-        }
-      } else if (this.audioConfig?.categories['background']?.enabled) {
-        if (!this.playingTracks['background']) {
-          this.playCategory('background');
+      if (timeLeft === 0 && !this.hasPlayedTimeout) {
+        this.hasPlayedTimeout = true;
+        if (!isInitialSync) {
+          this.playCategory('timeout');
         }
       }
-    } else if (timeLeft <= 10 && timeLeft > 0) {
-      this.stopCategory('q_countdown');
-      this.stopCategory('background');
-      
-      if (this.audioConfig?.categories['countdown']?.enabled) {
-        if (!this.playingTracks['countdown']) {
-          this.playCategory('countdown');
-        }
-      }
-    } else if (timeLeft === 0) {
-      this.stopAllQuestionMusic();
-      this.playCategory('timeout');
     }
   }
 
-  stopKBCMusic() {
-    this.stopAll(true);
+  stopCountdown() {
+    this.stopCategory('countdown');
   }
+
+  playLocked() { 
+    this.playCategory('submit'); 
+  }
+
+  playCorrect() { 
+    this.playCategory('correct'); 
+  }
+
+  playWrong() { 
+    this.playCategory('wrong'); 
+  }
+
+  playTimeout() {
+    this.hasPlayedTimeout = true;
+    this.playCategory('timeout');
+  }
+
+  playLeaderboard() { 
+    this.stopAll(true);
+    this.playCategory('leaderboard'); 
+  }
+
+  // Aliases for compatibility
+  playStartSequence() { this.playStart(); }
+  playLockedSound() { this.playLocked(); }
+  stopKBCMusic() { this.stopCountdown(); }
+  stopAllQuestionMusic() { this.stopCountdown(); }
 }
 
 window.sound = new SoundSynth();

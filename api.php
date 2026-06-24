@@ -51,25 +51,13 @@ function getDefaultAudioSettings() {
         'categories' => [
             'lobby' => ['enabled' => true, 'file_path' => 'SYNTH_LOBBY', 'volume' => 0.8, 'loop' => true],
             'start' => ['enabled' => true, 'file_path' => 'assets/audio/chalo.mp3', 'volume' => 0.8, 'loop' => false],
-            'reveal' => ['enabled' => true, 'file_path' => 'SYNTH_REVEAL', 'volume' => 0.8, 'loop' => false],
-            'background' => ['enabled' => true, 'file_path' => 'SYNTH_KAHOOT_QUESTION', 'volume' => 0.8, 'loop' => true],
+            'next_question' => ['enabled' => true, 'file_path' => 'SYNTH_NEXT', 'volume' => 0.8, 'loop' => false],
             'countdown' => ['enabled' => true, 'file_path' => 'SYNTH_FINAL_COUNTDOWN', 'volume' => 0.8, 'loop' => false],
             'submit' => ['enabled' => true, 'file_path' => 'SYNTH_KAHOOT_LOCKED', 'volume' => 0.8, 'loop' => false],
             'correct' => ['enabled' => true, 'file_path' => 'SYNTH_CORRECT', 'volume' => 0.8, 'loop' => false],
             'wrong' => ['enabled' => true, 'file_path' => 'SYNTH_KAHOOT_WRONG', 'volume' => 0.8, 'loop' => false],
             'timeout' => ['enabled' => true, 'file_path' => 'SYNTH_TIMEOUT', 'volume' => 0.8, 'loop' => false],
-            'next_question' => ['enabled' => true, 'file_path' => 'SYNTH_NEXT', 'volume' => 0.8, 'loop' => false],
-            'leaderboard' => ['enabled' => true, 'file_path' => 'SYNTH_LEADERBOARD', 'volume' => 0.8, 'loop' => false],
-            'winner' => ['enabled' => true, 'file_path' => 'SYNTH_VICTORY', 'volume' => 0.8, 'loop' => false],
-            'top3' => ['enabled' => true, 'file_path' => 'SYNTH_TOP3', 'volume' => 0.8, 'loop' => false],
-            'trophy' => ['enabled' => true, 'file_path' => 'SYNTH_TROPHY', 'volume' => 0.8, 'loop' => false],
-            'fireworks' => ['enabled' => true, 'file_path' => 'SYNTH_FIREWORKS', 'volume' => 0.8, 'loop' => false],
-            'confetti' => ['enabled' => true, 'file_path' => 'SYNTH_CONFETTI', 'volume' => 0.8, 'loop' => false],
-            'join' => ['enabled' => true, 'file_path' => 'SYNTH_JOIN', 'volume' => 0.8, 'loop' => false],
-            'leave' => ['enabled' => true, 'file_path' => 'SYNTH_LEAVE', 'volume' => 0.8, 'loop' => false],
-            'click' => ['enabled' => true, 'file_path' => 'SYNTH_CLICK', 'volume' => 0.8, 'loop' => false],
-            'completion' => ['enabled' => true, 'file_path' => 'SYNTH_COMPLETION', 'volume' => 0.8, 'loop' => false],
-            'q_countdown' => ['enabled' => true, 'file_path' => 'SYNTH_QUESTION_COUNTDOWN', 'volume' => 0.8, 'loop' => true, 'fade' => true]
+            'leaderboard' => ['enabled' => true, 'file_path' => 'SYNTH_LEADERBOARD', 'volume' => 0.8, 'loop' => false]
         ]
     ];
 }
@@ -79,11 +67,13 @@ function getResolvedAudioSettings($pdo, $quizId = null) {
     $stmt = $pdo->prepare("SELECT setting_value FROM global_settings WHERE setting_key = 'global_audio_settings'");
     $stmt->execute();
     $globalVal = $stmt->fetchColumn();
-    $globalSettings = $globalVal ? json_decode($globalVal, true) : null;
-    if ($globalSettings) {
-        $default = array_replace_recursive($default, $globalSettings);
+    if ($globalVal) {
+        $globalConfig = json_decode($globalVal, true);
+        if ($globalConfig) {
+            $default = array_replace_recursive($default, $globalConfig);
+        }
     }
-    if ($quizId) {
+    if ($quizId && $quizId > 0) {
         $stmtQuiz = $pdo->prepare("SELECT audio_override, audio_settings FROM quizzes WHERE id = ?");
         $stmtQuiz->execute([$quizId]);
         $quizInfo = $stmtQuiz->fetch();
@@ -94,6 +84,19 @@ function getResolvedAudioSettings($pdo, $quizId = null) {
             }
         }
     }
+    
+    // Filter categories to only keep the 9 valid ones
+    $validKeys = array_keys(getDefaultAudioSettings()['categories']);
+    $filteredCats = [];
+    foreach ($validKeys as $k) {
+        if (isset($default['categories'][$k])) {
+            $filteredCats[$k] = $default['categories'][$k];
+        } else {
+            $filteredCats[$k] = getDefaultAudioSettings()['categories'][$k];
+        }
+    }
+    $default['categories'] = $filteredCats;
+    
     return $default;
 }
 
@@ -1692,43 +1695,19 @@ try {
 
         case 'get_quiz_audio_settings':
             $quizId = intval($_GET['quiz_id'] ?? 0);
-            if ($quizId === 0) {
-                $stmt = $pdo->prepare("SELECT setting_value FROM global_settings WHERE setting_key = 'global_audio_settings'");
-                $stmt->execute();
-                $globalVal = $stmt->fetchColumn();
-                $audioConfig = $globalVal ? json_decode($globalVal, true) : null;
-                if (!$audioConfig || !isset($audioConfig['global']) || !isset($audioConfig['categories'])) {
-                    $audioConfig = getDefaultAudioSettings();
-                }
-                $response = [
-                    'success' => true,
-                    'audio_override' => 0,
-                    'audio_config' => $audioConfig
-                ];
-            } else {
-                $stmt = $pdo->prepare("SELECT audio_override, audio_settings FROM quizzes WHERE id = ?");
+            $audioOverride = 0;
+            if ($quizId > 0) {
+                $stmt = $pdo->prepare("SELECT audio_override FROM quizzes WHERE id = ?");
                 $stmt->execute([$quizId]);
-                $row = $stmt->fetch();
-
-                if (!$row) {
-                    $response = ['error' => 'Quiz not found'];
-                    break;
-                }
-
-                $audioConfig = null;
-                if ($row['audio_settings']) {
-                    $audioConfig = json_decode($row['audio_settings'], true);
-                }
-                if (!$audioConfig || !isset($audioConfig['global']) || !isset($audioConfig['categories'])) {
-                    $audioConfig = getResolvedAudioSettings($pdo);
-                }
-
-                $response = [
-                    'success' => true,
-                    'audio_override' => intval($row['audio_override']),
-                    'audio_config' => $audioConfig
-                ];
+                $overrideVal = $stmt->fetchColumn();
+                $audioOverride = $overrideVal ? intval($overrideVal) : 0;
             }
+            $audioConfig = getResolvedAudioSettings($pdo, $quizId);
+            $response = [
+                'success' => true,
+                'audio_override' => $audioOverride,
+                'audio_config' => $audioConfig
+            ];
             break;
 
         case 'get_question_answers':
