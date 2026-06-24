@@ -5,6 +5,15 @@ if (session_status() === PHP_SESSION_NONE) {
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/settings_manager.php';
+
+$quizName = SettingsManager::get('quiz_name', 'TechnoQuiz');
+$quizLogo = SettingsManager::get('quiz_logo', 'assets/logo.png');
+$customColor = SettingsManager::get('custom_colors', '#4F46E5');
+$customFont = SettingsManager::get('custom_fonts', 'Inter, sans-serif');
+$customBg = SettingsManager::get('custom_bg', '');
+$isDarkTheme = SettingsManager::getBool('dark_theme', false);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -12,7 +21,7 @@ if (empty($_SESSION['csrf_token'])) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
-  <title>TechnoQuiz Arena - Presenter Dashboard</title>
+  <title><?php echo htmlspecialchars($quizName); ?> - Presenter Dashboard</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons CDN -->
@@ -21,13 +30,40 @@ if (empty($_SESSION['csrf_token'])) {
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <style>
     body {
-        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+      font-family: <?php echo $customFont; ?> !important;
+      <?php if (!empty($customBg)): ?>
+      background: <?php echo $customBg; ?> !important;
+      <?php else: ?>
+      background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+      <?php endif; ?>
     }
     .glass-panel {
       background: rgba(255, 255, 255, 0.85);
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.5);
       box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+    }
+    /* Define primary colors */
+    .bg-indigo-600 {
+      background-color: <?php echo $customColor; ?> !important;
+    }
+    .text-indigo-600 {
+      color: <?php echo $customColor; ?> !important;
+    }
+    .text-indigo-700 {
+      color: <?php echo $customColor; ?> !important;
+    }
+    .bg-indigo-50 {
+      background-color: <?php echo $customColor; ?>0f !important;
+    }
+    .bg-indigo-100 {
+      background-color: <?php echo $customColor; ?>25 !important;
+    }
+    .border-indigo-100 {
+      border-color: <?php echo $customColor; ?>25 !important;
+    }
+    .border-indigo-200 {
+      border-color: <?php echo $customColor; ?>40 !important;
     }
     .winner-bg {
       background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
@@ -47,24 +83,51 @@ if (empty($_SESSION['csrf_token'])) {
       transition: width 0.5s ease-out;
     }
   </style>
+  <?php if ($isDarkTheme): ?>
+  <style>
+    body {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+    }
+    header, footer, .glass-panel, .bg-white, .tab-panel > div, .bg-slate-50 {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
+    h1, h2, h3, h4, h5, h6, label, p, span, td, th {
+      color: #f1f5f9 !important;
+    }
+    input, select, textarea {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
+    .text-slate-500, .text-slate-400 {
+      color: #94a3b8 !important;
+    }
+    .border-slate-100, .border-slate-200 {
+      border-color: #334155 !important;
+    }
+  </style>
+  <?php endif; ?>
 </head>
 <body class="text-slate-800 min-h-screen flex flex-col justify-between p-4 md:p-6 transition-colors duration-500" id="main-body">
 
   <!-- Header -->
   <header id="main-header" class="flex justify-between items-center glass-panel p-4 rounded-2xl max-w-7xl mx-auto w-full mb-6 z-10 relative">
     <div class="flex items-center gap-3">
-      <img src="assets/logo.png" alt="TechnoQuiz Logo" class="w-10 h-10 object-contain drop-shadow-md" />
+      <img src="<?php echo htmlspecialchars($quizLogo); ?>" alt="Logo" class="w-10 h-10 object-contain drop-shadow-md" />
       <div>
-        <h2 class="font-sans font-black text-md text-slate-900" id="header-quiz-title">TechnoQuiz Presenter</h2>
-        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">PIN Room: <span class="font-mono text-indigo-600 text-xs" id="header-pin-code">...</span></p>
+        <h2 class="font-sans font-black text-md text-slate-900" id="header-quiz-title"><?php echo htmlspecialchars($quizName); ?> Presenter</h2>
+        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">PIN Room: <span class="font-mono text-indigo-650 text-xs" id="header-pin-code">...</span></p>
       </div>
     </div>
 
     <!-- Right Header Controls -->
     <div class="flex items-center gap-3 md:gap-4">
-      <div id="countdown-banner" class="hidden flex items-center gap-2 text-amber-700 font-bold bg-amber-100/80 backdrop-blur-md border border-amber-300 px-4 py-2 rounded-xl text-sm shadow-sm">
-        <i data-lucide="clock" class="w-4 h-4 animate-spin text-amber-600"></i>
-        <span id="countdown-text">30s Left</span>
+      <div id="countdown-banner" class="hidden flex items-center gap-3 font-bold bg-white/90 border rounded-2xl px-5 py-2.5 text-sm shadow-md transition-all duration-300">
+        <div id="countdown-visual" class="flex items-center gap-2.5"></div>
+        <span id="countdown-text" class="font-mono text-base font-black">--s</span>
       </div>
 
       <button onclick="toggleMute()" id="mute-btn" class="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-650 hover:bg-slate-50 transition-all cursor-pointer shadow-sm">
@@ -385,11 +448,69 @@ if (empty($_SESSION['csrf_token'])) {
     let initialSyncDone = false;
     let lastQuestionIndex = -1;
 
+    window.publicSettings = {};
+    let autoTransitioning = false;
+
+    function fetchPublicSettings() {
+      return fetch('api.php?action=get_public_settings')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.settings) {
+            window.publicSettings = data.settings;
+          }
+        });
+    }
+
+    function renderCountdown(timeLeft, totalTime) {
+      const banner = document.getElementById('countdown-banner');
+      const visual = document.getElementById('countdown-visual');
+      const text = document.getElementById('countdown-text');
+      if (!banner || !visual || !text) return;
+      
+      const style = window.publicSettings.countdown_style || 'Bar';
+      const warningEnabled = window.publicSettings.last_5s_warning === '1' || window.publicSettings.last_5s_warning === 1 || window.publicSettings.last_5s_warning === 'Enabled' || window.publicSettings.last_5s_warning === true;
+      const isWarning = warningEnabled && timeLeft <= 5 && timeLeft > 0;
+      
+      text.innerText = `${timeLeft}s Left`;
+      
+      if (isWarning) {
+        banner.className = "flex items-center gap-3 font-bold bg-red-100 border border-red-300 px-5 py-2.5 text-sm shadow-md transition-all duration-300 text-red-655 animate-pulse";
+      } else {
+        banner.className = "flex items-center gap-3 font-bold bg-white/90 border border-slate-200 px-5 py-2.5 text-sm shadow-md transition-all duration-300 text-slate-700";
+      }
+      
+      visual.innerHTML = '';
+      if (style === 'Circle') {
+        const radius = 10;
+        const circumference = 2 * Math.PI * radius;
+        const offset = totalTime > 0 ? circumference - (timeLeft / totalTime) * circumference : 0;
+        visual.innerHTML = `
+          <svg class="w-6 h-6 transform -rotate-90">
+            <circle cx="12" cy="12" r="${radius}" class="stroke-slate-200 fill-none" stroke-width="2" />
+            <circle cx="12" cy="12" r="${radius}" class="${isWarning ? 'stroke-red-500' : 'stroke-indigo-600'} fill-none" stroke-width="2" 
+              stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" />
+          </svg>
+        `;
+      } else if (style === 'Bar') {
+        const pct = totalTime > 0 ? (timeLeft / totalTime) * 100 : 0;
+        visual.innerHTML = `
+          <div class="w-20 bg-slate-100 border border-slate-200 h-2.5 rounded-full overflow-hidden">
+            <div class="${isWarning ? 'bg-red-500' : 'bg-indigo-650'} h-full rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+          </div>
+        `;
+      } else {
+        visual.innerHTML = `<i data-lucide="clock" class="w-4 h-4 ${isWarning ? 'text-red-500' : 'text-indigo-600'} shrink-0"></i>`;
+        lucide.createIcons();
+      }
+    }
+
     // Load initial sounds and poll
     window.addEventListener('load', () => {
-      sound.playLobby();
-      pollLobby();
-      intervalId = setInterval(pollLobby, 300); // 300ms updates for real-time dashboard
+      fetchPublicSettings().then(() => {
+        sound.playLobby();
+        pollLobby();
+        intervalId = setInterval(pollLobby, 300); // 300ms updates for real-time dashboard
+      });
 
       document.addEventListener('click', (e) => {
         if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input[type="submit"]')) {
@@ -483,6 +604,34 @@ if (empty($_SESSION['csrf_token'])) {
             } else {
               sound.playCountdown(data.time_left, !initialSyncDone);
             }
+
+            // Render the visual countdown
+            const totalTime = data.current_question ? parseInt(data.current_question.time_limit || 30) : 30;
+            renderCountdown(data.time_left, totalTime);
+
+            // Auto next question transition
+            const autoNext = window.publicSettings.auto_next_question === '1' || window.publicSettings.auto_next_question === 1 || window.publicSettings.auto_next_question === 'Enabled' || window.publicSettings.auto_next_question === true;
+            if (autoNext && (data.time_left <= 0 || data.all_answered) && !autoTransitioning) {
+              autoTransitioning = true;
+              const delayStr = window.publicSettings.auto_change_delay || '2 Seconds';
+              const delaySecs = parseInt(delayStr) || 2;
+              setTimeout(() => {
+                revealAnswer();
+                autoTransitioning = false;
+              }, delaySecs * 1000);
+            }
+          } else if (data.status === 'SHOWING_LEADERBOARD') {
+            // Auto question change transition
+            const autoChange = window.publicSettings.auto_question_change === '1' || window.publicSettings.auto_question_change === 1 || window.publicSettings.auto_question_change === 'Enabled' || window.publicSettings.auto_question_change === true;
+            if (autoChange && !autoTransitioning) {
+              autoTransitioning = true;
+              const transStr = window.publicSettings.transition_duration || '3 sec';
+              const transSecs = parseInt(transStr) || 3;
+              setTimeout(() => {
+                nextQuestion();
+                autoTransitioning = false;
+              }, transSecs * 1000);
+            }
           }
           
           initialSyncDone = true;
@@ -511,7 +660,11 @@ if (empty($_SESSION['csrf_token'])) {
           document.getElementById('main-header').style.display = 'none';
           document.getElementById('main-footer').style.display = 'none';
           document.getElementById('main-body').style.background = '#0f172a';
-          fireConfetti();
+          
+          const confettiEnabled = window.publicSettings.confetti_effect === '1' || window.publicSettings.confetti_effect === 1 || window.publicSettings.confetti_effect === 'Enabled' || window.publicSettings.confetti_effect === true;
+          if (confettiEnabled) {
+              fireConfetti();
+          }
       } else {
           document.getElementById('main-header').style.display = 'flex';
           document.getElementById('main-footer').style.display = 'block';
@@ -522,7 +675,12 @@ if (empty($_SESSION['csrf_token'])) {
       if (newState === 'LOBBY') {
         sound.playLobby();
       } else if (newState === 'FINISHED') {
-        sound.playLeaderboard();
+        const winnerMusicEnabled = window.publicSettings.winner_music === '1' || window.publicSettings.winner_music === 1 || window.publicSettings.winner_music === 'Enabled' || window.publicSettings.winner_music === true;
+        if (winnerMusicEnabled) {
+            sound.playLeaderboard();
+        } else {
+            sound.stopAll(true);
+        }
         loadPodiumStandings();
         clearInterval(intervalId); // stop polling on completion
       } else if (newState === 'SHOWING_LEADERBOARD') {
@@ -792,10 +950,12 @@ if (empty($_SESSION['csrf_token'])) {
                 `;
             }
             // 1st Place
+            const trophyEnabled = window.publicSettings.trophy_anim === '1' || window.publicSettings.trophy_anim === 1 || window.publicSettings.trophy_anim === 'Enabled' || window.publicSettings.trophy_anim === true;
+            const trophyEmoji = trophyEnabled ? '🏆' : '🥇';
             if (rankings[0]) {
                 podium.innerHTML += `
                     <div class="flex flex-col items-center transform transition-all hover:scale-105 z-10 animate-[fade-in-up_0.5s_ease-out_0s_both]">
-                        <div class="text-6xl mb-2 drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]">🏆</div>
+                        <div class="text-6xl mb-2 drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]">${trophyEmoji}</div>
                         <div class="text-2xl font-black text-yellow-400 mb-1 max-w-[150px] truncate">${rankings[0].name}</div>
                         <div class="text-md font-black text-yellow-200 mb-3">${rankings[0].score} pts</div>
                         <div class="w-32 md:w-44 h-44 md:h-56 bg-gradient-to-t from-yellow-500 to-yellow-300 rounded-t-3xl shadow-[0_-10px_30px_rgba(255,215,0,0.4)] flex items-end justify-center pb-6 text-yellow-800 font-black text-6xl">1</div>

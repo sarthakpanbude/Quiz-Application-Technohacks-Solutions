@@ -15,6 +15,7 @@ if (empty($username) || empty($pin)) {
 
 // Auto-register candidate in session roster in database immediately
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/settings_manager.php';
 try {
   $stmtS = $pdo->prepare("SELECT id FROM quiz_sessions WHERE pin_code = ?");
   $stmtS->execute([$pin]);
@@ -26,6 +27,13 @@ try {
 } catch (Exception $e) {
   // Ignore db exceptions silently
 }
+
+$quizName = SettingsManager::get('quiz_name', 'TechnoQuiz');
+$quizLogo = SettingsManager::get('quiz_logo', 'assets/logo.png');
+$customColor = SettingsManager::get('custom_colors', '#4F46E5');
+$customFont = SettingsManager::get('custom_fonts', 'Inter, sans-serif');
+$customBg = SettingsManager::get('custom_bg', '');
+$isDarkTheme = SettingsManager::getBool('dark_theme', false);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,7 +42,7 @@ try {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
-  <title>TechnoQuiz - Student Arena</title>
+  <title><?php echo htmlspecialchars($quizName); ?> - Student Arena</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons CDN -->
@@ -48,7 +56,12 @@ try {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
   <style>
     body {
+      font-family: <?php echo $customFont; ?> !important;
+      <?php if (!empty($customBg)): ?>
+      background: <?php echo $customBg; ?> !important;
+      <?php else: ?>
       background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      <?php endif; ?>
     }
 
     .glass-panel {
@@ -57,6 +70,32 @@ try {
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.5);
       box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Define primary colors matching customColor setting */
+    .bg-indigo-655, .bg-indigo-600 {
+      background-color: <?php echo $customColor; ?> !important;
+    }
+    .text-indigo-600, .text-indigo-650, .text-indigo-700 {
+      color: <?php echo $customColor; ?> !important;
+    }
+    .bg-indigo-50 {
+      background-color: <?php echo $customColor; ?>0f !important;
+    }
+    .bg-indigo-100 {
+      background-color: <?php echo $customColor; ?>25 !important;
+    }
+    .border-indigo-100 {
+      border-color: <?php echo $customColor; ?>25 !important;
+    }
+    .border-indigo-200 {
+      border-color: <?php echo $customColor; ?>40 !important;
+    }
+    .ring-indigo-500\/20 {
+      --tw-ring-color: <?php echo $customColor; ?>33 !important;
+    }
+    .shadow-indigo-500\/30 {
+      --tw-shadow-color: <?php echo $customColor; ?>4d !important;
     }
 
     .winner-bg {
@@ -89,17 +128,45 @@ try {
       -webkit-text-fill-color: transparent;
     }
   </style>
+  <?php if ($isDarkTheme): ?>
+  <style>
+    body {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+    }
+    header, footer, .glass-panel, .bg-white, .bg-white\/80 {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
+    h1, h2, h3, h4, h5, h6, label, p, span, td, th {
+      color: #f1f5f9 !important;
+    }
+    input, select, textarea {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+      border-color: #475569 !important;
+    }
+    #options-grid button {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
+    #options-grid button:hover {
+      background-color: #334155 !important;
+    }
+  </style>
+  <?php endif; ?>
 </head>
 
 <body class="text-slate-800 min-h-screen flex flex-col justify-between p-4 md:p-6 transition-colors duration-500"
-  id="main-body" oncopy="return false" onpaste="return false" oncut="return false" oncontextmenu="return false"
-  style="user-select: none;">
+  id="main-body">
 
   <!-- Header -->
   <header id="main-header"
     class="flex justify-between items-center glass-panel p-4 rounded-2xl max-w-7xl mx-auto w-full mb-6 z-10 relative transition-all duration-500">
     <div class="flex items-center gap-3">
-      <img src="assets/logo.png" alt="TechnoQuiz Logo" class="w-10 h-10 object-contain drop-shadow-md" />
+      <img src="<?php echo htmlspecialchars($quizLogo); ?>" alt="TechnoQuiz Logo" class="w-10 h-10 object-contain drop-shadow-md" />
       <div>
         <h2 class="font-sans font-bold text-md text-slate-900" id="header-quiz-title">TechnoQuiz Arena</h2>
         <p class="text-xs text-slate-500 font-medium">Lobby Code: <span class="font-mono text-indigo-600 font-extrabold"
@@ -130,7 +197,7 @@ try {
       <div class="p-10 rounded-[2rem] glass-panel space-y-6">
         <div
           class="w-20 h-20 rounded-3xl bg-white border border-slate-200 flex items-center justify-center mx-auto mb-2 animate-bounce shadow-lg p-2">
-          <img src="assets/logo.png" alt="TechnoQuiz Logo" class="w-16 h-16 object-contain" />
+          <img src="<?php echo htmlspecialchars($quizLogo); ?>" alt="TechnoQuiz Logo" class="w-16 h-16 object-contain" />
         </div>
         <h2 class="font-sans text-3xl font-black text-slate-900 tracking-tight">You're In,
           <?php echo htmlspecialchars($username); ?>!</h2>
@@ -316,6 +383,17 @@ try {
 
     const pin = "<?php echo htmlspecialchars($pin); ?>";
     const username = "<?php echo htmlspecialchars($username); ?>";
+    
+    window.publicSettings = <?php 
+      require_once __DIR__ . '/settings_schema.php';
+      $resolvedSettings = [];
+      foreach ($DEFAULT_SETTINGS as $category => $keys) {
+          foreach ($keys as $key => $meta) {
+              $resolvedSettings[$key] = SettingsManager::get($key);
+          }
+      }
+      echo json_encode($resolvedSettings);
+    ?>;
 
     let currentState = '';
     let intervalId = null;
@@ -326,6 +404,7 @@ try {
 
     window.addEventListener('load', () => {
       sound.playLobby();
+      initAntiCheat();
       pollLobby();
       intervalId = setInterval(pollLobby, 300); // 300ms updates
 
@@ -337,6 +416,199 @@ try {
         }
       });
     });
+
+    function initAntiCheat() {
+      // 1. Disable Right Click
+      const disableRightClick = window.publicSettings.disable_right_click === '1' || window.publicSettings.disable_right_click === 1 || window.publicSettings.disable_right_click === 'Enabled' || window.publicSettings.disable_right_click === true;
+      if (disableRightClick) {
+        document.addEventListener('contextmenu', e => e.preventDefault());
+      }
+
+      // 2. Block Copy/Paste/Cut
+      const blockCopyPaste = window.publicSettings.block_copy_paste === '1' || window.publicSettings.block_copy_paste === 1 || window.publicSettings.block_copy_paste === 'Enabled' || window.publicSettings.block_copy_paste === true;
+      if (blockCopyPaste) {
+        const blockEvents = ['copy', 'cut', 'paste'];
+        blockEvents.forEach(evtName => {
+          document.addEventListener(evtName, e => e.preventDefault());
+        });
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
+        document.body.style.msUserSelect = 'none';
+        document.body.style.mozUserSelect = 'none';
+      } else {
+        document.body.style.userSelect = 'auto';
+        document.body.style.webkitUserSelect = 'auto';
+        document.body.style.msUserSelect = 'auto';
+        document.body.style.mozUserSelect = 'auto';
+      }
+
+      // 3. Prevent Multiple Tabs
+      const preventMultiTabs = window.publicSettings.prevent_multi_tabs === '1' || window.publicSettings.prevent_multi_tabs === 1 || window.publicSettings.prevent_multi_tabs === 'Enabled' || window.publicSettings.prevent_multi_tabs === true;
+      if (preventMultiTabs) {
+        const tabKey = 'active_tab_' + pin + '_' + username;
+        const currentTabId = Math.random().toString(36).substring(2);
+        localStorage.setItem(tabKey, currentTabId);
+        
+        window.addEventListener('storage', (e) => {
+          if (e.key === tabKey && e.newValue !== currentTabId) {
+            showTabBlockedModal();
+          }
+        });
+        
+        setInterval(() => {
+          if (localStorage.getItem(tabKey) !== currentTabId) {
+            showTabBlockedModal();
+          }
+        }, 1000);
+      }
+
+      // 4. Detect Page Refresh
+      const detectRefresh = window.publicSettings.detect_refresh === '1' || window.publicSettings.detect_refresh === 1 || window.publicSettings.detect_refresh === 'Enabled' || window.publicSettings.detect_refresh === true;
+      if (detectRefresh) {
+        window.addEventListener('beforeunload', (e) => {
+          e.preventDefault();
+          e.returnValue = 'Refreshing the page may submit or reset your current question progress. Are you sure you want to reload?';
+          return e.returnValue;
+        });
+      }
+
+      // 5. Fullscreen Mode Required
+      checkFullscreenRequirement();
+    }
+
+    function showTabBlockedModal() {
+      if (document.getElementById('tab-blocked-modal')) return;
+      const overlay = document.createElement('div');
+      overlay.id = 'tab-blocked-modal';
+      overlay.className = 'fixed inset-0 z-[10000] bg-slate-900 flex flex-col items-center justify-center p-6 text-center text-white';
+      overlay.innerHTML = `
+        <div class="max-w-md w-full space-y-6 bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-2xl">
+          <div class="w-20 h-20 bg-red-500/10 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="shield-alert" class="w-10 h-10"></i>
+          </div>
+          <h2 class="text-3xl font-black tracking-tight text-red-500">Access Blocked</h2>
+          <p class="text-slate-300 font-medium">Multiple tabs detected. You are only allowed to have one active tab for this quiz. Please close other tabs to continue.</p>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      lucide.createIcons();
+      clearInterval(intervalId); // Stop polling
+    }
+
+    let fullscreenBlockingVisible = false;
+    function checkFullscreenRequirement() {
+      const req = window.publicSettings.full_screen_req === '1' || window.publicSettings.full_screen_req === 1 || window.publicSettings.full_screen_req === 'Enabled' || window.publicSettings.full_screen_req === true;
+      if (!req) return;
+
+      if (currentState === 'FINISHED' || currentState === '') return;
+
+      const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+      if (!isFullscreen) {
+        showFullscreenBlockingModal();
+      } else {
+        hideFullscreenBlockingModal();
+      }
+    }
+
+    function showFullscreenBlockingModal() {
+      if (document.getElementById('fullscreen-blocking-modal')) return;
+      const overlay = document.createElement('div');
+      overlay.id = 'fullscreen-blocking-modal';
+      overlay.className = 'fixed inset-0 z-[9999] bg-slate-900/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white';
+      overlay.innerHTML = `
+        <div class="max-w-md w-full space-y-6 bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-2xl animate-[scale-in_0.3s_ease-out]">
+          <div class="w-20 h-20 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="maximize-2" class="w-10 h-10"></i>
+          </div>
+          <h2 class="text-3xl font-black tracking-tight">Fullscreen Required</h2>
+          <p class="text-slate-300 font-medium">This quiz enforces fullscreen mode to prevent cheating. You must enter fullscreen to continue playing.</p>
+          <button id="btn-enter-fullscreen" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 px-6 rounded-2xl text-lg flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg">
+            <i data-lucide="expand" class="w-5 h-5"></i> Enter Fullscreen
+          </button>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      lucide.createIcons();
+
+      document.getElementById('btn-enter-fullscreen').addEventListener('click', () => {
+        const el = document.documentElement;
+        const requestMethod = el.requestFullscreen || el.webkitRequestFullScreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+        if (requestMethod) {
+          requestMethod.call(el).then(() => {
+            hideFullscreenBlockingModal();
+          }).catch(err => {
+            console.error("Fullscreen request failed", err);
+          });
+        }
+      });
+    }
+
+    function hideFullscreenBlockingModal() {
+      const modal = document.getElementById('fullscreen-blocking-modal');
+      if (modal) modal.remove();
+    }
+
+    document.addEventListener('fullscreenchange', checkFullscreenRequirement);
+    document.addEventListener('webkitfullscreenchange', checkFullscreenRequirement);
+    document.addEventListener('mozfullscreenchange', checkFullscreenRequirement);
+    document.addEventListener('MSFullscreenChange', checkFullscreenRequirement);
+
+    // Tab Visibility Hidden submission handler
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        const autoSubmitOnExit = window.publicSettings.auto_submit_on_exit === '1' || window.publicSettings.auto_submit_on_exit === 1 || window.publicSettings.auto_submit_on_exit === 'Enabled' || window.publicSettings.auto_submit_on_exit === true;
+        if (autoSubmitOnExit && currentState === 'ACTIVE_QUESTION' && !answerLocked) {
+          submitAnswer(0); 
+          alert("You left the quiz page! Your answer for this question has been automatically submitted and locked.");
+        }
+      }
+    });
+
+    // Native notification / Toast system
+    function showNotification(message, type = 'info') {
+      const container = document.getElementById('toast-container') || (() => {
+        const div = document.createElement('div');
+        div.id = 'toast-container';
+        div.className = 'fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 max-w-sm w-full';
+        document.body.appendChild(div);
+        return div;
+      })();
+
+      const toast = document.createElement('div');
+      toast.className = 'p-4 rounded-2xl glass-panel shadow-2xl border border-slate-200/50 flex items-center gap-3 bg-white/95 text-slate-800 transition-all duration-300 transform translate-y-2 opacity-0';
+      
+      let icon = 'info';
+      let iconColor = 'text-indigo-600';
+      if (type === 'warning') {
+        icon = 'alert-triangle';
+        iconColor = 'text-amber-500';
+      } else if (type === 'success') {
+        icon = 'check-circle';
+        iconColor = 'text-emerald-500';
+      }
+
+      toast.innerHTML = `
+        <div class="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 ${iconColor}">
+          <i data-lucide="${icon}" class="w-5 h-5"></i>
+        </div>
+        <div class="text-sm font-bold leading-tight">${message}</div>
+      `;
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      // Animate in
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      // Remove after 4 seconds
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => {
+          toast.remove();
+        }, 300);
+      }, 4000);
+    }
 
     function pollLobby() {
       if (transitioningToNext) return;
@@ -390,6 +662,18 @@ try {
               pollLobby();
               return;
             }
+
+            // Check for last 10 seconds warning notification
+            if (data.time_left === 10 && data.is_paused !== 1 && !answerLocked && !data.already_answered) {
+              const showTimeWarnNotif = window.publicSettings.time_warn_notif === '1' || window.publicSettings.time_warn_notif === 1 || window.publicSettings.time_warn_notif === 'Enabled' || window.publicSettings.time_warn_notif === true;
+              if (showTimeWarnNotif) {
+                if (!window.lastTimeWarnQuestionId || window.lastTimeWarnQuestionId !== activeQuestionId) {
+                  window.lastTimeWarnQuestionId = activeQuestionId;
+                  showNotification("Hurry! Only 10 seconds remaining!", "warning");
+                }
+              }
+            }
+
             if (data.is_paused === 1) {
               document.getElementById('countdown-text').innerText = `[Paused] ${data.time_left}s Left`;
               sound.stopCountdown();
@@ -449,6 +733,9 @@ try {
     function handleStateTransition(newState, data) {
       currentState = newState;
 
+      // Dynamic check for fullscreen requirement
+      checkFullscreenRequirement();
+
       // Hide all panels
       document.querySelectorAll('main > div').forEach(p => p.classList.add('hidden'));
 
@@ -465,7 +752,11 @@ try {
         document.getElementById('main-header').style.display = 'none';
         document.getElementById('main-footer').style.display = 'none';
         document.getElementById('main-body').style.background = '#0f172a';
-        fireConfetti();
+        
+        const confettiEnabled = window.publicSettings.confetti_effect !== '0' && window.publicSettings.confetti_effect !== 0 && window.publicSettings.confetti_effect !== 'Disabled' && window.publicSettings.confetti_effect !== false;
+        if (confettiEnabled) {
+          fireConfetti();
+        }
       } else {
         document.getElementById('main-header').style.display = 'flex';
         document.getElementById('main-footer').style.display = 'block';
@@ -476,18 +767,31 @@ try {
       if (newState === 'LOBBY') {
         sound.playLobby();
       } else if (newState === 'FINISHED') {
-        sound.playLeaderboard();
+        const winnerMusicEnabled = window.publicSettings.winner_music !== '0' && window.publicSettings.winner_music !== 0 && window.publicSettings.winner_music !== 'Disabled' && window.publicSettings.winner_music !== false;
+        if (winnerMusicEnabled) {
+          sound.playLeaderboard();
+        } else {
+          sound.stopAll(true);
+        }
         loadFinalStandings();
         clearInterval(intervalId); // stop polling on conclude
       } else if (newState === 'SHOWING_LEADERBOARD') {
         sound.stopAll(true);
       } else if (newState === 'ACTIVE_QUESTION') {
         if (lastQuestionIndex === -1) {
+          const showStartNotif = window.publicSettings.quiz_start_notif === '1' || window.publicSettings.quiz_start_notif === 1 || window.publicSettings.quiz_start_notif === 'Enabled' || window.publicSettings.quiz_start_notif === true;
+          if (showStartNotif) {
+            showNotification("Quiz has started! Good luck!", "success");
+          }
           if (initialSyncDone) {
             sound.playStart();
           }
           lastQuestionIndex = data.current_question_index;
         } else if (data.current_question_index > lastQuestionIndex) {
+          const showChangeNotif = window.publicSettings.question_change_notif === '1' || window.publicSettings.question_change_notif === 1 || window.publicSettings.question_change_notif === 'Enabled' || window.publicSettings.question_change_notif === true;
+          if (showChangeNotif) {
+            showNotification(`Moving to Question ${data.current_question_index + 1}!`, "info");
+          }
           if (initialSyncDone) {
             sound.playNextQuestion();
           }
@@ -637,10 +941,32 @@ try {
       transitioningToNext = true;
       const box = document.getElementById('inputs-box');
 
+      const instantResult = window.publicSettings.instant_result !== '0' && window.publicSettings.instant_result !== 0 && window.publicSettings.instant_result !== 'Disabled' && window.publicSettings.instant_result !== false;
+      const showTotalScore = window.publicSettings.show_total_score !== '0' && window.publicSettings.show_total_score !== 0 && window.publicSettings.show_total_score !== 'Disabled' && window.publicSettings.show_total_score !== false;
+
+      if (!instantResult) {
+        box.innerHTML = `
+          <div class="text-center p-10 md:p-14 bg-indigo-50 border border-indigo-200 rounded-[2rem] shadow-2xl space-y-6 transform transition-all animate-[scale-in_0.3s_ease-out]">
+            <div class="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center mx-auto text-5xl mb-6 shadow-md text-indigo-600">
+              <i data-lucide="check-circle" class="w-12 h-12"></i>
+            </div>
+            <h3 class="font-sans font-black text-3xl md:text-4xl text-indigo-800">Answer Received!</h3>
+            <p class="text-slate-600 text-md font-medium">Your response has been logged. Waiting for the presenter to advance.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        setTimeout(() => {
+          transitioningToNext = false;
+          pollLobby();
+        }, 1000);
+        return;
+      }
+
       const isCorrect = data.is_correct;
       const scoreEarned = data.score_earned || 0;
 
       if (isCorrect) {
+        const pointsText = showTotalScore ? `+${scoreEarned} Points` : 'Correct!';
         box.innerHTML = `
           <div class="text-center p-10 md:p-14 bg-emerald-50 border border-emerald-200 rounded-[2rem] shadow-2xl space-y-6 transform transition-all animate-[scale-in_0.3s_ease-out]">
             <div class="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center mx-auto text-5xl mb-6 shadow-md text-emerald-600">
@@ -648,12 +974,15 @@ try {
             </div>
             <h3 class="font-sans font-black text-3xl md:text-4xl text-emerald-800">Correct Answer!</h3>
             <div class="text-xl font-bold px-6 py-3 rounded-2xl inline-block bg-emerald-100 text-emerald-700 border border-emerald-200">
-               +${scoreEarned} Points
+               ${pointsText}
             </div>
           </div>
         `;
       } else {
-        const pointsText = scoreEarned < 0 ? `${scoreEarned} Points` : `0 Points`;
+        let pointsText = 'Incorrect!';
+        if (showTotalScore) {
+          pointsText = scoreEarned < 0 ? `${scoreEarned} Points` : `0 Points`;
+        }
         box.innerHTML = `
           <div class="text-center p-10 md:p-14 bg-rose-50 border border-rose-200 rounded-[2rem] shadow-2xl space-y-6 transform transition-all animate-[scale-in_0.3s_ease-out]">
             <div class="w-24 h-24 rounded-full bg-rose-100 flex items-center justify-center mx-auto text-5xl mb-6 shadow-md text-rose-600">
@@ -732,17 +1061,28 @@ try {
         .then(res => res.json())
         .then(data => {
           const banner = document.getElementById('correction-banner');
+          const showCorrect = window.publicSettings.show_correct_ans !== '0' && window.publicSettings.show_correct_ans !== 0 && window.publicSettings.show_correct_ans !== 'Disabled' && window.publicSettings.show_correct_ans !== false;
+          const showWrong = window.publicSettings.show_wrong_ans !== '0' && window.publicSettings.show_wrong_ans !== 0 && window.publicSettings.show_wrong_ans !== 'Disabled' && window.publicSettings.show_wrong_ans !== false;
+          const showTotalScore = window.publicSettings.show_total_score !== '0' && window.publicSettings.show_total_score !== 0 && window.publicSettings.show_total_score !== 'Disabled' && window.publicSettings.show_total_score !== false;
 
           if (data.student_score) {
             const score = data.student_score;
             const scoreEarned = score.scoreEarned;
             if (score.isCorrect) {
               banner.className = "p-5 rounded-2xl text-center border-2 font-black text-xl bg-green-500/10 text-green-700 border-green-500/30 backdrop-blur-md";
-              banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="check-circle" class="w-6 h-6"></i> Correct! (+${scoreEarned} pts)</span>`;
+              let ptsMsg = showTotalScore ? ` (+${scoreEarned} pts)` : '';
+              banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="check-circle" class="w-6 h-6"></i> Correct!${ptsMsg}</span>`;
             } else {
               banner.className = "p-5 rounded-2xl text-center border-2 font-black text-xl bg-red-500/10 text-red-700 border-red-500/30 backdrop-blur-md";
-              const penaltyText = scoreEarned < 0 ? ` (${scoreEarned} pts)` : ` (+0 pts)`;
-              banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="x-circle" class="w-6 h-6"></i> Incorrect Answer${penaltyText}</span>`;
+              let ptsMsg = '';
+              if (showTotalScore) {
+                ptsMsg = scoreEarned < 0 ? ` (${scoreEarned} pts)` : ` (+0 pts)`;
+              }
+              if (showWrong) {
+                banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="x-circle" class="w-6 h-6"></i> Incorrect Answer${ptsMsg}</span>`;
+              } else {
+                banner.innerHTML = `<span class="flex items-center justify-center gap-2"><i data-lucide="check-circle" class="w-6 h-6"></i> Response Logged${ptsMsg}</span>`;
+              }
             }
           } else {
             banner.className = "p-5 rounded-2xl text-center border-2 font-black text-xl bg-slate-500/10 text-slate-700 border-slate-500/30 backdrop-blur-md";
@@ -752,36 +1092,44 @@ try {
             }
           }
 
-          // Update explanation context image
-          const expImgBox = document.getElementById('explanation-image-box');
-          const expImg = document.getElementById('explanation-image');
-          if (data.image_path) {
-            expImg.src = data.image_path;
-            expImgBox.classList.remove('hidden');
-          } else {
-            expImg.src = '';
-            expImgBox.classList.add('hidden');
-          }
+          // Toggle Explanation Panel
+          const expPanel = document.getElementById('explanation-text').closest('.glass-panel');
+          if (expPanel) {
+            if (showCorrect) {
+              expPanel.classList.remove('hidden');
+              // Update explanation context image
+              const expImgBox = document.getElementById('explanation-image-box');
+              const expImg = document.getElementById('explanation-image');
+              if (data.image_path) {
+                expImg.src = data.image_path;
+                expImgBox.classList.remove('hidden');
+              } else {
+                expImg.src = '';
+                expImgBox.classList.add('hidden');
+              }
 
-          // Update explanation context code snippet
-          const expCodeBox = document.getElementById('explanation-code-box');
-          const expCode = document.getElementById('explanation-code');
-          if (data.code_snippet) {
-            expCode.className = data.code_language ? `language-${data.code_language}` : '';
-            expCode.textContent = data.code_snippet;
-            expCodeBox.classList.remove('hidden');
-            if (window.hljs) {
-              hljs.highlightElement(expCode);
+              // Update explanation context code snippet
+              const expCodeBox = document.getElementById('explanation-code-box');
+              const expCode = document.getElementById('explanation-code');
+              if (data.code_snippet) {
+                expCode.className = data.code_language ? `language-${data.code_language}` : '';
+                expCode.textContent = data.code_snippet;
+                expCodeBox.classList.remove('hidden');
+                if (window.hljs) {
+                  hljs.highlightElement(expCode);
+                }
+              } else {
+                expCode.className = '';
+                expCode.textContent = '';
+                expCodeBox.classList.add('hidden');
+              }
+
+              document.getElementById('explanation-text').innerText = data.explanation;
+            } else {
+              expPanel.classList.add('hidden');
             }
-          } else {
-            expCode.className = '';
-            expCode.textContent = '';
-            expCodeBox.classList.add('hidden');
           }
 
-          document.getElementById('explanation-text').innerText = data.explanation;
-
-          // Rankings (removed)
           lucide.createIcons();
         });
     }
@@ -791,13 +1139,24 @@ try {
       fetch('api.php?action=get_podium&pin_code=' + pin)
         .then(res => res.json())
         .then(rankings => {
+          const showRank = window.publicSettings.show_rank !== '0' && window.publicSettings.show_rank !== 0 && window.publicSettings.show_rank !== 'Disabled' && window.publicSettings.show_rank !== false;
+          const showTotalScore = window.publicSettings.show_total_score !== '0' && window.publicSettings.show_total_score !== 0 && window.publicSettings.show_total_score !== 'Disabled' && window.publicSettings.show_total_score !== false;
+
           // Setup User Win/Loss Banner
           const myRankIndex = rankings.findIndex(r => r.name === username);
           const statusDiv = document.getElementById('final-user-status');
           if (myRankIndex >= 0 && myRankIndex < 3) {
-            statusDiv.innerHTML = `<span class="inline-block mt-2 bg-yellow-400 text-yellow-900 px-6 py-2 rounded-full font-black text-2xl md:text-3xl uppercase tracking-widest shadow-[0_0_30px_rgba(255,215,0,0.8)] animate-pulse">🎉 You are a WINNER! 🎉</span>`;
+            if (showRank) {
+              statusDiv.innerHTML = `<span class="inline-block mt-2 bg-yellow-400 text-yellow-900 px-6 py-2 rounded-full font-black text-2xl md:text-3xl uppercase tracking-widest shadow-[0_0_30px_rgba(255,215,0,0.8)] animate-pulse">🎉 You are a WINNER! 🎉</span>`;
+            } else {
+              statusDiv.innerHTML = `<span class="inline-block mt-2 bg-yellow-400 text-yellow-900 px-6 py-2 rounded-full font-black text-2xl md:text-3xl uppercase tracking-widest shadow-[0_0_30px_rgba(255,215,0,0.8)] animate-pulse">🎉 Quiz Completed! 🎉</span>`;
+            }
           } else if (myRankIndex >= 0) {
-            statusDiv.innerHTML = `<span class="inline-block mt-2 bg-slate-700/80 text-slate-200 px-6 py-2 rounded-full font-bold text-xl uppercase tracking-widest border border-slate-500/50">Good Effort! You ranked #${myRankIndex + 1}</span>`;
+            if (showRank) {
+              statusDiv.innerHTML = `<span class="inline-block mt-2 bg-slate-700/80 text-slate-200 px-6 py-2 rounded-full font-bold text-xl uppercase tracking-widest border border-slate-500/50">Good Effort! You ranked #${myRankIndex + 1}</span>`;
+            } else {
+              statusDiv.innerHTML = `<span class="inline-block mt-2 bg-slate-700/80 text-slate-200 px-6 py-2 rounded-full font-bold text-xl uppercase tracking-widest border border-slate-500/50">Good Effort! You completed the quiz.</span>`;
+            }
           }
 
           // Setup Total Players
@@ -815,10 +1174,10 @@ try {
           if (rankings[1]) {
             podium.innerHTML += `
                     <div class="flex flex-col items-center transform transition-all hover:scale-105 animate-[fade-in-up_0.5s_ease-out_0.2s_both]">
-                        <div class="text-4xl mb-2">🥈</div>
+                        ${showRank ? '<div class="text-4xl mb-2">🥈</div>' : ''}
                         <div class="text-xl font-bold text-slate-200 mb-1 max-w-[120px] truncate">${rankings[1].name}</div>
-                        <div class="text-sm font-bold text-indigo-300 mb-3">${rankings[1].score} pts</div>
-                        <div class="w-28 md:w-36 h-32 md:h-40 bg-gradient-to-t from-slate-400 to-slate-300 rounded-t-2xl shadow-[0_-10px_20px_rgba(255,255,255,0.2)] flex items-end justify-center pb-4 text-slate-700 font-black text-4xl">2</div>
+                        ${showTotalScore ? `<div class="text-sm font-bold text-indigo-300 mb-3">${rankings[1].score} pts</div>` : ''}
+                        <div class="w-28 md:w-36 h-32 md:h-40 bg-gradient-to-t from-slate-400 to-slate-300 rounded-t-2xl shadow-[0_-10px_20px_rgba(255,255,255,0.2)] flex items-end justify-center pb-4 text-slate-700 font-black text-4xl">${showRank ? '2' : ''}</div>
                     </div>
                 `;
           }
@@ -826,10 +1185,10 @@ try {
           if (rankings[0]) {
             podium.innerHTML += `
                     <div class="flex flex-col items-center transform transition-all hover:scale-105 z-10 animate-[fade-in-up_0.5s_ease-out_0s_both]">
-                        <div class="text-6xl mb-2 drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]">🏆</div>
+                        ${showRank ? '<div class="text-6xl mb-2 drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]">🏆</div>' : ''}
                         <div class="text-2xl font-black text-yellow-400 mb-1 max-w-[150px] truncate">${rankings[0].name}</div>
-                        <div class="text-md font-black text-yellow-200 mb-3">${rankings[0].score} pts</div>
-                        <div class="w-32 md:w-44 h-44 md:h-56 bg-gradient-to-t from-yellow-500 to-yellow-300 rounded-t-3xl shadow-[0_-10px_30px_rgba(255,215,0,0.4)] flex items-end justify-center pb-6 text-yellow-800 font-black text-6xl">1</div>
+                        ${showTotalScore ? `<div class="text-md font-black text-yellow-200 mb-3">${rankings[0].score} pts</div>` : ''}
+                        <div class="w-32 md:w-44 h-44 md:h-56 bg-gradient-to-t from-yellow-500 to-yellow-300 rounded-t-3xl shadow-[0_-10px_30px_rgba(255,215,0,0.4)] flex items-end justify-center pb-6 text-yellow-800 font-black text-6xl">${showRank ? '1' : ''}</div>
                     </div>
                 `;
           }
@@ -837,23 +1196,46 @@ try {
           if (rankings[2]) {
             podium.innerHTML += `
                     <div class="flex flex-col items-center transform transition-all hover:scale-105 animate-[fade-in-up_0.5s_ease-out_0.4s_both]">
-                        <div class="text-4xl mb-2">🥉</div>
+                        ${showRank ? '<div class="text-4xl mb-2">🥉</div>' : ''}
                         <div class="text-xl font-bold text-slate-200 mb-1 max-w-[120px] truncate">${rankings[2].name}</div>
-                        <div class="text-sm font-bold text-indigo-300 mb-3">${rankings[2].score} pts</div>
-                        <div class="w-28 md:w-36 h-24 md:h-32 bg-gradient-to-t from-orange-500 to-orange-300 rounded-t-2xl shadow-[0_-10px_20px_rgba(255,255,255,0.2)] flex items-end justify-center pb-4 text-orange-900 font-black text-4xl">3</div>
+                        ${showTotalScore ? `<div class="text-sm font-bold text-indigo-300 mb-3">${rankings[2].score} pts</div>` : ''}
+                        <div class="w-28 md:w-36 h-24 md:h-32 bg-gradient-to-t from-orange-500 to-orange-300 rounded-t-2xl shadow-[0_-10px_20px_rgba(255,255,255,0.2)] flex items-end justify-center pb-4 text-orange-900 font-black text-4xl">${showRank ? '3' : ''}</div>
                     </div>
                 `;
           }
 
-          // 2. Winner Card logic
+          // 2. Winner/Participation Card logic
           const actionsBox = document.getElementById('winner-actions-box');
-          if (myRankIndex >= 0 && myRankIndex < 3) {
-            const downloadBtn = document.createElement('button');
-            downloadBtn.className = "w-full bg-indigo-600 text-white hover:bg-indigo-700 font-black py-4 px-6 rounded-[1.5rem] text-lg flex items-center justify-center gap-3 transition-all shadow-[0_0_20px_rgba(79,70,229,0.5)] transform hover:scale-105";
-            downloadBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i> Download Winner Card`;
-            downloadBtn.onclick = () => downloadWinnerCard(rankings[myRankIndex], myRankIndex + 1);
-            actionsBox.prepend(downloadBtn);
-            lucide.createIcons();
+          const certDlBtn = window.publicSettings.cert_dl_btn === '1' || window.publicSettings.cert_dl_btn === 1 || window.publicSettings.cert_dl_btn === 'Enabled' || window.publicSettings.cert_dl_btn === true;
+          const autoGenCert = window.publicSettings.auto_gen_cert === '1' || window.publicSettings.auto_gen_cert === 1 || window.publicSettings.auto_gen_cert === 'Enabled' || window.publicSettings.auto_gen_cert === true;
+          const winnerCert = window.publicSettings.winner_cert !== '0' && window.publicSettings.winner_cert !== 0 && window.publicSettings.winner_cert !== 'Disabled' && window.publicSettings.winner_cert !== false;
+          const partCert = window.publicSettings.part_cert === '1' || window.publicSettings.part_cert === 1 || window.publicSettings.part_cert === 'Enabled' || window.publicSettings.part_cert === true;
+
+          let eligible = false;
+          let rankNumber = myRankIndex + 1;
+          if (myRankIndex >= 0) {
+            if (partCert) {
+              eligible = true;
+            } else if (winnerCert && myRankIndex < 3) {
+              eligible = true;
+            }
+          }
+
+          if (eligible) {
+            if (certDlBtn) {
+              const downloadBtn = document.createElement('button');
+              downloadBtn.className = "w-full bg-indigo-600 text-white hover:bg-indigo-700 font-black py-4 px-6 rounded-[1.5rem] text-lg flex items-center justify-center gap-3 transition-all shadow-[0_0_20px_rgba(79,70,229,0.5)] transform hover:scale-105";
+              downloadBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i> Download Certificate`;
+              downloadBtn.onclick = () => downloadWinnerCard(rankings[myRankIndex], rankNumber);
+              actionsBox.prepend(downloadBtn);
+              lucide.createIcons();
+            }
+
+            if (autoGenCert) {
+              setTimeout(() => {
+                downloadWinnerCard(rankings[myRankIndex], rankNumber);
+              }, 2000);
+            }
           }
         });
     }
@@ -866,18 +1248,42 @@ try {
       document.getElementById('card-name').innerText = data.name;
       document.getElementById('card-score').innerText = data.score;
 
-      if (rank === 1) {
-        document.getElementById('card-trophy').innerText = '🏆';
-        document.getElementById('card-rank').innerText = '1st Place';
-        document.getElementById('card-rank').className = 'text-4xl font-black mb-2 text-yellow-400 uppercase tracking-widest';
-      } else if (rank === 2) {
-        document.getElementById('card-trophy').innerText = '🥈';
-        document.getElementById('card-rank').innerText = '2nd Place';
-        document.getElementById('card-rank').className = 'text-4xl font-black mb-2 text-slate-300 uppercase tracking-widest';
-      } else if (rank === 3) {
-        document.getElementById('card-trophy').innerText = '🥉';
-        document.getElementById('card-rank').innerText = '3rd Place';
-        document.getElementById('card-rank').className = 'text-4xl font-black mb-2 text-amber-600 uppercase tracking-widest';
+      // Update template logos/titles dynamically
+      template.querySelector('h2').innerText = window.publicSettings.quiz_name || 'TechnoQuiz Arena';
+      template.querySelector('img').src = window.publicSettings.quiz_logo || 'assets/logo.png';
+
+      const showRank = window.publicSettings.show_rank !== '0' && window.publicSettings.show_rank !== 0 && window.publicSettings.show_rank !== 'Disabled' && window.publicSettings.show_rank !== false;
+      const showTotalScore = window.publicSettings.show_total_score !== '0' && window.publicSettings.show_total_score !== 0 && window.publicSettings.show_total_score !== 'Disabled' && window.publicSettings.show_total_score !== false;
+
+      if (showRank) {
+        if (rank === 1) {
+          document.getElementById('card-trophy').innerText = '🏆';
+          document.getElementById('card-rank').innerText = '1st Place';
+          document.getElementById('card-rank').className = 'text-4xl font-black mb-2 text-yellow-400 uppercase tracking-widest';
+        } else if (rank === 2) {
+          document.getElementById('card-trophy').innerText = '🥈';
+          document.getElementById('card-rank').innerText = '2nd Place';
+          document.getElementById('card-rank').className = 'text-4xl font-black mb-2 text-slate-300 uppercase tracking-widest';
+        } else if (rank === 3) {
+          document.getElementById('card-trophy').innerText = '🥉';
+          document.getElementById('card-rank').innerText = '3rd Place';
+          document.getElementById('card-rank').className = 'text-4xl font-black mb-2 text-amber-600 uppercase tracking-widest';
+        } else {
+          document.getElementById('card-trophy').innerText = '🏅';
+          document.getElementById('card-rank').innerText = `Rank #${rank}`;
+          document.getElementById('card-rank').className = 'text-4xl font-black mb-2 text-indigo-300 uppercase tracking-widest';
+        }
+      } else {
+        document.getElementById('card-trophy').innerText = '🏅';
+        document.getElementById('card-rank').innerText = 'Participant';
+        document.getElementById('card-rank').className = 'text-4xl font-black mb-2 text-indigo-300 uppercase tracking-widest';
+      }
+
+      const scoreBox = document.getElementById('card-score').parentNode;
+      if (showTotalScore) {
+        scoreBox.style.display = 'block';
+      } else {
+        scoreBox.style.display = 'none';
       }
 
       html2canvas(template, {

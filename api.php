@@ -36,6 +36,24 @@ if (in_array($action, $writeActions) && $_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 require_once __DIR__ . '/db.php';
+
+// Admin Session Timeout Check
+if (isset($_SESSION['role']) && $_SESSION['role'] === 'ADMIN' && $action !== 'admin_login') {
+    require_once __DIR__ . '/settings_manager.php';
+    $timeoutMins = SettingsManager::getInt('admin_timeout', 60);
+    $timeoutSecs = $timeoutMins * 60;
+    if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity'] > $timeoutSecs)) {
+        session_destroy();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        header("HTTP/1.1 401 Unauthorized");
+        echo json_encode(['error' => 'Admin session timed out. Please login again.']);
+        exit;
+    }
+    $_SESSION['admin_last_activity'] = time();
+}
+
 require_once __DIR__ . '/gemini_ai.php';
 
 // Auto login removed, admin authentication is required.
@@ -100,6 +118,51 @@ function getResolvedAudioSettings($pdo, $quizId = null) {
     return $default;
 }
 
+function getQuestionTimeLimit($pdo, $session, $question) {
+    if ($session && !empty($session['question_time_limit'])) {
+        return intval($session['question_time_limit']);
+    }
+    require_once __DIR__ . '/settings_manager.php';
+    $customTime = SettingsManager::getBool('custom_time_per_q', true);
+    $defaultTime = SettingsManager::getInt('default_question_time', 30);
+    
+    if (!$customTime) {
+        return $defaultTime;
+    }
+    
+    return intval(!empty($question['time_limit']) ? $question['time_limit'] : $defaultTime);
+}
+
+function getLeaderboardOrderBy($tableAlias = '') {
+    require_once __DIR__ . '/settings_manager.php';
+    $tieBreaker = SettingsManager::get('tie_breaker_rules', 'Time Taken');
+    
+    $prefix = $tableAlias ? $tableAlias . '.' : '';
+    $orderBy = "{$prefix}score DESC";
+    
+    if ($tieBreaker === 'Time Taken') {
+        $orderBy .= ", (SELECT COALESCE(AVG(response_time_ms), 999999) FROM session_responses WHERE participant_id = {$prefix}id AND response_time_ms > 0) ASC";
+    } else if ($tieBreaker === 'Streak') {
+        $orderBy .= ", {$prefix}streak DESC";
+    } else {
+        $orderBy .= ", {$prefix}id ASC";
+    }
+    
+    return $orderBy;
+}
+
+function getDisplayName($name, $currentGuestName = '') {
+    require_once __DIR__ . '/settings_manager.php';
+    if (SettingsManager::getBool('anon_leaderboard', false)) {
+        if (!empty($currentGuestName) && $name === $currentGuestName) {
+            return $name;
+        }
+        return 'Player_' . substr(md5($name), 0, 5);
+    }
+    return $name;
+}
+
+
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $response = ['error' => 'Invalid action'];
 
@@ -149,6 +212,13 @@ try {
             break;
 
         case 'admin_login':
+            require_once __DIR__ . '/settings_manager.php';
+            $limit = SettingsManager::getInt('login_limit', 5);
+            if (isset($_SESSION['login_attempts']) && $_SESSION['login_attempts'] >= $limit) {
+                $response = ['error' => 'Too many login attempts. Access blocked.'];
+                break;
+            }
+
             $user = json_decode(file_get_contents('php://input'), true);
             $username = trim($user['username'] ?? '');
             $password = $user['password'] ?? '';
@@ -162,21 +232,31 @@ try {
             $stmt->execute([$username]);
             $dbUser = $stmt->fetch();
 
+            $loginSuccess = false;
             if ($dbUser && password_verify($password, $dbUser['password_hash'])) {
                 $_SESSION['user_id'] = 'admin_' . $dbUser['id'];
                 $_SESSION['username'] = $dbUser['username'];
                 $_SESSION['role'] = 'ADMIN';
+                $_SESSION['admin_last_activity'] = time();
+                $_SESSION['login_attempts'] = 0;
                 $response = ['success' => true];
+                $loginSuccess = true;
             } else {
                 // Fallback for bootstrap / default admin login
                 if ($username === 'admin' && $password === 'admin') {
                     $_SESSION['user_id'] = 'admin_default';
                     $_SESSION['username'] = 'Admin';
                     $_SESSION['role'] = 'ADMIN';
+                    $_SESSION['admin_last_activity'] = time();
+                    $_SESSION['login_attempts'] = 0;
                     $response = ['success' => true];
-                } else {
-                    $response = ['error' => 'Invalid admin credentials'];
+                    $loginSuccess = true;
                 }
+            }
+
+            if (!$loginSuccess) {
+                $_SESSION['login_attempts'] = ($_SESSION['login_attempts'] ?? 0) + 1;
+                $response = ['error' => 'Invalid admin credentials'];
             }
             break;
 
@@ -188,10 +268,15 @@ try {
         case 'get_live_sessions':
             $stmt = $pdo->query("SELECT qs.*, q.title as quiz_title FROM quiz_sessions qs JOIN quizzes q ON qs.quiz_id = q.id ORDER BY qs.id DESC");
             $sessions = $stmt->fetchAll();
+            $username = $_SESSION['username'] ?? '';
             foreach ($sessions as &$sess) {
-                $stmtB = $pdo->prepare("SELECT username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY score DESC LIMIT 3");
+                $stmtB = $pdo->prepare("SELECT username as name, id, score, streak FROM session_participants WHERE session_id = ? ORDER BY " . getLeaderboardOrderBy() . " LIMIT 3");
                 $stmtB->execute([$sess['id']]);
-                $sess['leaderboard'] = $stmtB->fetchAll();
+                $leaderboardData = $stmtB->fetchAll();
+                foreach ($leaderboardData as &$row) {
+                    $row['name'] = getDisplayName($row['name'], $username);
+                }
+                $sess['leaderboard'] = $leaderboardData;
             }
             $response = $sessions;
             break;
@@ -205,22 +290,89 @@ try {
             break;
 
         case 'register_guest':
+            require_once __DIR__ . '/settings_manager.php';
             $name = trim($_POST['name'] ?? '');
             $pin = trim($_POST['pin_code'] ?? '');
             if (empty($name)) {
                 $response = ['error' => 'Display name is required'];
                 break;
             }
-            $_SESSION['user_id'] = 'guest_' . uniqid();
-            $_SESSION['username'] = $name;
-            $_SESSION['role'] = 'STUDENT';
+
+            // Access Password check
+            $accessPassword = SettingsManager::get('access_password', '');
+            if (!empty($accessPassword)) {
+                $clientPass = trim($_POST['access_password'] ?? '');
+                if ($clientPass !== $accessPassword) {
+                    $response = ['error' => 'Incorrect access password. Please try again.'];
+                    break;
+                }
+            }
+
+            // Email check
+            $email = null;
+            if (SettingsManager::getBool('email_req', false)) {
+                $email = trim($_POST['email'] ?? '');
+                if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    $response = ['error' => 'A valid email address is required to join.'];
+                    break;
+                }
+            }
+
+            // Mobile check
+            $mobile = null;
+            if (SettingsManager::getBool('mobile_req', false)) {
+                $mobile = trim($_POST['mobile'] ?? '');
+                if (empty($mobile) || !preg_match('/^[0-9+-\s]{8,15}$/', $mobile)) {
+                    $response = ['error' => 'A valid mobile number is required to join.'];
+                    break;
+                }
+            }
 
             if (!empty($pin)) {
-                $stmtS = $pdo->prepare("SELECT qs.id, qs.quiz_id, q.title, q.scheduled_start, q.expiry_time, q.attempt_limit FROM quiz_sessions qs JOIN quizzes q ON qs.quiz_id = q.id WHERE qs.pin_code = ?");
+                $stmtS = $pdo->prepare("SELECT qs.id, qs.pin_code, qs.status, qs.quiz_id, q.title, q.scheduled_start, q.expiry_time, q.attempt_limit FROM quiz_sessions qs JOIN quizzes q ON qs.quiz_id = q.id WHERE qs.pin_code = ?");
                 $stmtS->execute([$pin]);
                 $session = $stmtS->fetch();
                 
                 if ($session) {
+                    // Late join check
+                    $lateJoin = SettingsManager::getBool('late_join', true);
+                    if (!$lateJoin && $session['status'] !== 'LOBBY') {
+                        $response = ['error' => 'Late joins are disabled. You cannot join a quiz already in progress.'];
+                        break;
+                    }
+
+                    // Max participants limit check
+                    $maxPart = SettingsManager::getInt('max_participants', 1000);
+                    $stmtCountPart = $pdo->prepare("SELECT COUNT(*) FROM session_participants WHERE session_id = ?");
+                    $stmtCountPart->execute([$session['id']]);
+                    if (intval($stmtCountPart->fetchColumn()) >= $maxPart) {
+                        $response = ['error' => 'Session full. Maximum participant limit reached.'];
+                        break;
+                    }
+
+                    // Uniqueness & rejoin check
+                    $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM session_participants WHERE session_id = ? AND username = ?");
+                    $stmtCheck->execute([$session['id'], $name]);
+                    $exists = intval($stmtCheck->fetchColumn()) > 0;
+
+                    if ($exists) {
+                        $isRejoin = (isset($_SESSION['username']) && $_SESSION['username'] === $name && isset($_SESSION['role']) && $_SESSION['role'] === 'STUDENT');
+                        if ($isRejoin) {
+                            $rejoinAllowed = SettingsManager::getBool('rejoin_after_dc', true);
+                            if (!$rejoinAllowed) {
+                                $response = ['error' => 'Rejoining is disabled. You cannot rejoin after disconnecting.'];
+                                break;
+                            }
+                        } else {
+                            $unique = SettingsManager::getBool('unique_username', true);
+                            $allowDup = SettingsManager::getBool('allow_duplicate_names', false);
+                            if ($unique || !$allowDup) {
+                                $response = ['error' => 'Username already taken. Please choose a unique name.'];
+                                break;
+                            }
+                        }
+                    }
+
                     $now = date('Y-m-d H:i:s');
                     
                     // 1. Check scheduling start
@@ -234,7 +386,7 @@ try {
                         $response = ['error' => 'This quiz session has expired and is no longer accepting responses.'];
                         break;
                     }
-
+                    
                     // 3. Check attempt limit
                     if (intval($session['attempt_limit']) > 0) {
                         $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM session_participants sp JOIN quiz_sessions qs ON sp.session_id = qs.id WHERE sp.username = ? AND qs.quiz_id = ? AND qs.status = 'FINISHED'");
@@ -247,10 +399,17 @@ try {
                         }
                     }
 
-                    $stmtIns = $pdo->prepare("INSERT OR IGNORE INTO session_participants (session_id, username) VALUES (?, ?)");
-                    $stmtIns->execute([$session['id'], $name]);
+                    $stmtIns = $pdo->prepare("INSERT OR IGNORE INTO session_participants (session_id, username, mobile, email) VALUES (?, ?, ?, ?)");
+                    $stmtIns->execute([$session['id'], $name, $mobile, $email]);
+                } else {
+                    $response = ['error' => 'Session not found'];
+                    break;
                 }
             }
+
+            $_SESSION['user_id'] = 'guest_' . uniqid();
+            $_SESSION['username'] = $name;
+            $_SESSION['role'] = 'STUDENT';
 
             $response = [
                 'success' => true,
@@ -281,8 +440,13 @@ try {
             }
 
             $pdo->beginTransaction();
-            // Generate unique pin code
-            $pinCode = str_pad(rand(100000, 999999), 6, '0', STR_PAD_LEFT);
+            require_once __DIR__ . '/settings_manager.php';
+            $codeLen = SettingsManager::getInt('quiz_code_length', 6);
+            if ($codeLen < 4) $codeLen = 4;
+            if ($codeLen > 10) $codeLen = 10;
+            $minVal = pow(10, $codeLen - 1);
+            $maxVal = pow(10, $codeLen) - 1;
+            $pinCode = str_pad(rand($minVal, $maxVal), $codeLen, '0', STR_PAD_LEFT);
             
             $stmt = $pdo->prepare("INSERT INTO quizzes (title, description, time_limit, pin_code, status, negative_marking, negative_marks, category, difficulty, scheduled_start, expiry_time, attempt_limit, shuffle_questions, shuffle_options) VALUES (?, ?, ?, ?, 'LIVE', ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$title, $description, $timeLimit, $pinCode, $negativeMarking, $negativeMarks, $category, $difficulty, $scheduledStart, $expiryTime, $attemptLimit, $shuffleQuestions, $shuffleOptions]);
@@ -376,7 +540,13 @@ try {
             }
 
             $pdo->beginTransaction();
-            $newPin = str_pad(rand(100000, 999999), 6, '0', STR_PAD_LEFT);
+            require_once __DIR__ . '/settings_manager.php';
+            $codeLen = SettingsManager::getInt('quiz_code_length', 6);
+            if ($codeLen < 4) $codeLen = 4;
+            if ($codeLen > 10) $codeLen = 10;
+            $minVal = pow(10, $codeLen - 1);
+            $maxVal = pow(10, $codeLen) - 1;
+            $newPin = str_pad(rand($minVal, $maxVal), $codeLen, '0', STR_PAD_LEFT);
             $stmtInsert = $pdo->prepare("INSERT INTO quizzes (title, description, time_limit, pin_code, status, negative_marking, negative_marks, category, difficulty, scheduled_start, expiry_time, attempt_limit, shuffle_questions, shuffle_options) VALUES (?, ?, ?, ?, 'LIVE', ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmtInsert->execute([$quiz['title'] . ' (Copy)', $quiz['description'], $quiz['time_limit'], $newPin, $quiz['negative_marking'] ?? 0, $quiz['negative_marks'] ?? 0, $quiz['category'] ?? 'General', $quiz['difficulty'] ?? 'Medium', $quiz['scheduled_start'] ?? null, $quiz['expiry_time'] ?? null, $quiz['attempt_limit'] ?? 0, $quiz['shuffle_questions'] ?? 0, $quiz['shuffle_options'] ?? 0]);
             $newQuizId = $pdo->lastInsertId();
@@ -513,6 +683,9 @@ try {
             $stmtP = $pdo->prepare("SELECT username FROM session_participants WHERE session_id = ? ORDER BY id DESC");
             $stmtP->execute([$session['id']]);
             $players = $stmtP->fetchAll(PDO::FETCH_COLUMN);
+            $players = array_map(function($pName) use ($username) {
+                return getDisplayName($pName, $username);
+            }, $players);
 
             // Get all questions
             $stmtQs = $pdo->prepare("SELECT * FROM questions WHERE quiz_id = ? ORDER BY q_order ASC");
@@ -566,7 +739,7 @@ try {
                         $studentStatus = 'FINISHED';
                     } else {
                         $q = $questions[$qIdx];
-                        $timeLimit = $session['question_time_limit'] ? intval($session['question_time_limit']) : intval($q['time_limit']);
+                        $timeLimit = getQuestionTimeLimit($pdo, $session, $q);
 
                         // Initialize start time if not set
                         if (intval($participant['question_started_at']) <= 0) {
@@ -596,7 +769,7 @@ try {
                             } else {
                                 // Load next question
                                 $q = $questions[$qIdx];
-                                $timeLimit = $session['question_time_limit'] ? intval($session['question_time_limit']) : intval($q['time_limit']);
+                                $timeLimit = getQuestionTimeLimit($pdo, $session, $q);
                                 $startedAt = time();
 
                                 $stmtUpP = $pdo->prepare("UPDATE session_participants SET current_question_index = ?, question_started_at = ? WHERE id = ?");
@@ -624,7 +797,7 @@ try {
                 // If not finished, load active question details
                 if ($studentStatus === 'ACTIVE_QUESTION' && $qIdx < $totalQs) {
                     $q = $questions[$qIdx];
-                    $timeLimit = $session['question_time_limit'] ? intval($session['question_time_limit']) : intval($q['time_limit']);
+                    $timeLimit = getQuestionTimeLimit($pdo, $session, $q);
 
                     if ($role !== 'STUDENT' || empty($username)) {
                         $elapsed = time() - intval($session['active_question_start']);
@@ -656,6 +829,19 @@ try {
                 }
             }
 
+            // Calculate active question submitted count
+            $allAnswered = false;
+            $activeAnsCount = 0;
+            $totPlayersCount = count($players);
+            if ($session['status'] === 'ACTIVE_QUESTION' && $currentQuestion) {
+                $stmtAns = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND question_id = ?");
+                $stmtAns->execute([$session['id'], $currentQuestion['id']]);
+                $activeAnsCount = intval($stmtAns->fetchColumn());
+                if ($totPlayersCount > 0 && $activeAnsCount >= $totPlayersCount) {
+                    $allAnswered = true;
+                }
+            }
+
             $response = [
                 'status' => $studentStatus,
                 'quiz_title' => $session['quiz_title'],
@@ -670,7 +856,10 @@ try {
                 'already_answered' => $alreadyAnswered,
                 'music_enabled' => intval($session['music_enabled']),
                 'active_question_start' => intval($session['active_question_start']),
-                'audio_config' => getResolvedAudioSettings($pdo, $session['quiz_id'])
+                'audio_config' => getResolvedAudioSettings($pdo, $session['quiz_id']),
+                'all_answered' => $allAnswered,
+                'active_question_answers' => $activeAnsCount,
+                'total_players' => $totPlayersCount
             ];
             break;
 
@@ -772,17 +961,30 @@ try {
                 $isCorrect = (!empty($codingCode) && strpos($codingCode, 'return') !== false) ? 1 : 0;
             }
 
+            require_once __DIR__ . '/settings_manager.php';
+            $stmtQuiz = $pdo->prepare("SELECT negative_marking, negative_marks FROM quizzes WHERE id = ?");
+            $stmtQuiz->execute([$question['quiz_id']]);
+            $quiz = $stmtQuiz->fetch();
+
             if ($isCorrect) {
                 $streak = intval($participant['streak']) + 1;
-                $scoreEarned = intval($question['points'] ?? 100);
-                $correctRank = 0; // Keeping variable for answer_rank compatibility
+                $basePoints = intval(!empty($question['points']) ? $question['points'] : SettingsManager::getInt('pts_per_question', 100));
+                
+                // Calculate response speed bonus
+                $timeLimit = getQuestionTimeLimit($pdo, $session, $question);
+                $timeLimitMs = $timeLimit * 1000;
+                $remainingFraction = max(0, ($timeLimitMs - $responseTimeMs) / ($timeLimitMs ?: 30000));
+                $fastestBonus = SettingsManager::getInt('fastest_answer_bonus', 50);
+                $bonusEarned = intval($fastestBonus * $remainingFraction);
+                
+                $scoreEarned = $basePoints + $bonusEarned;
+                $correctRank = 0;
             } else {
                 $streak = 0;
-                $stmtQuiz = $pdo->prepare("SELECT negative_marking, negative_marks FROM quizzes WHERE id = ?");
-                $stmtQuiz->execute([$question['quiz_id']]);
-                $quiz = $stmtQuiz->fetch();
-                if ($quiz && intval($quiz['negative_marking']) === 1) {
-                    $scoreEarned = -intval($quiz['negative_marks']);
+                $useNegative = (intval($quiz['negative_marking'] ?? 0) === 1 || SettingsManager::getBool('negative_marking', false));
+                if ($useNegative) {
+                    $penalty = intval(!empty($quiz['negative_marks']) ? $quiz['negative_marks'] : 25);
+                    $scoreEarned = -$penalty;
                 } else {
                     $scoreEarned = 0;
                 }
@@ -827,6 +1029,7 @@ try {
 
         case 'get_telemetry':
             $pin = $_GET['pin_code'] ?? '';
+            $username = $_SESSION['username'] ?? '';
             $stmtS = $pdo->prepare("SELECT * FROM quiz_sessions WHERE pin_code = ?");
             $stmtS->execute([$pin]);
             $session = $stmtS->fetch();
@@ -854,7 +1057,7 @@ try {
             $totalAnswers = intval($stmtTotalAns->fetchColumn());
 
             // Fetch active participant feed with progress index and correct counts
-            $stmtFeed = $pdo->prepare("SELECT p.id, p.username, p.score, p.streak, p.current_question_index FROM session_participants p WHERE p.session_id = ? ORDER BY p.score DESC");
+            $stmtFeed = $pdo->prepare("SELECT p.id, p.username, p.score, p.streak, p.current_question_index FROM session_participants p WHERE p.session_id = ? ORDER BY " . getLeaderboardOrderBy('p'));
             $stmtFeed->execute([$session['id']]);
             $feed = $stmtFeed->fetchAll();
 
@@ -878,7 +1081,7 @@ try {
                 $remaining = max(0, $totalQuestionsCount - intval($row['current_question_index']));
 
                 $telemetry[] = [
-                    'name' => $row['username'],
+                    'name' => getDisplayName($row['username'], $username),
                     'score' => intval($row['score']),
                     'streak' => intval($row['streak']),
                     'current_question_index' => intval($row['current_question_index']),
@@ -1096,21 +1299,22 @@ try {
 
             // Get participants and their metrics
             $stmtP = $pdo->prepare("
-                SELECT p.username as name, p.score as points,
+                SELECT p.id, p.username as name, p.score as points,
                 (SELECT COUNT(*) FROM session_responses r WHERE r.session_id = p.session_id AND r.participant_id = p.id AND r.is_correct = 1) as correct_answers,
                 (SELECT COUNT(*) FROM session_responses r WHERE r.session_id = p.session_id AND r.participant_id = p.id) as solved_questions
                 FROM session_participants p
                 WHERE p.session_id = ?
-                ORDER BY p.score DESC, correct_answers DESC
-            ");
+                ORDER BY " . getLeaderboardOrderBy('p')
+            );
             $stmtP->execute([$sessionId]);
             $players = $stmtP->fetchAll();
 
+            $username = $_SESSION['username'] ?? '';
             $leaderboard = [];
             foreach ($players as $idx => $player) {
                 $leaderboard[] = [
                     'rank' => $idx + 1,
-                    'name' => $player['name'],
+                    'name' => getDisplayName($player['name'], $username),
                     'points' => intval($player['points']),
                     'correct' => intval($player['correct_answers']),
                     'solved' => intval($player['solved_questions']),
@@ -1236,10 +1440,11 @@ try {
                 break;
             }
 
-            $stmtP = $pdo->prepare("SELECT id, username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY score DESC");
+            $stmtP = $pdo->prepare("SELECT id, username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY " . getLeaderboardOrderBy());
             $stmtP->execute([$sessionId]);
             $rawPodium = $stmtP->fetchAll();
 
+            $username = $_SESSION['username'] ?? '';
             $podium = [];
             foreach ($rawPodium as $row) {
                 // Correct count
@@ -1258,7 +1463,7 @@ try {
                 $avgSpeedMs = floatval($stmtSpeed->fetchColumn() ?: 0);
 
                 $podium[] = [
-                    'name' => $row['name'],
+                    'name' => getDisplayName($row['name'], $username),
                     'score' => intval($row['score']),
                     'streak' => intval($row['streak']),
                     'correct_count' => $correctCount,
@@ -1349,9 +1554,14 @@ try {
                 $row['total_players'] = intval($stmtCnt->fetchColumn());
 
                 // Top 10 leaderboard with streaks
-                $stmtP = $pdo->prepare("SELECT username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY score DESC LIMIT 10");
+                $stmtP = $pdo->prepare("SELECT username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY " . getLeaderboardOrderBy() . " LIMIT 10");
                 $stmtP->execute([$sessionId]);
-                $row['leaders'] = $stmtP->fetchAll();
+                $leaders = $stmtP->fetchAll();
+                $username = $_SESSION['username'] ?? '';
+                foreach ($leaders as &$l) {
+                    $l['name'] = getDisplayName($l['name'], $username);
+                }
+                $row['leaders'] = $leaders;
 
                 // Current question info (NO correct answer exposed)
                 $stmtQs = $pdo->prepare("SELECT id FROM questions WHERE quiz_id = ? ORDER BY q_order ASC");
@@ -1391,6 +1601,18 @@ try {
                 $live[] = $row;
             }
             $response = $live;
+            break;
+
+        case 'get_public_settings':
+            require_once __DIR__ . '/settings_manager.php';
+            require_once __DIR__ . '/settings_schema.php';
+            $resolvedSettings = [];
+            foreach ($DEFAULT_SETTINGS as $category => $keys) {
+                foreach ($keys as $key => $meta) {
+                    $resolvedSettings[$key] = SettingsManager::get($key);
+                }
+            }
+            $response = ['success' => true, 'settings' => $resolvedSettings];
             break;
 
         case 'get_settings':
@@ -1759,7 +1981,7 @@ try {
             }
 
             // Fetch overall leaderboard with correctness stats and response times
-            $stmtBoard = $pdo->prepare("SELECT id, username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY score DESC LIMIT 5");
+            $stmtBoard = $pdo->prepare("SELECT id, username as name, score, streak FROM session_participants WHERE session_id = ? ORDER BY " . getLeaderboardOrderBy() . " LIMIT 5");
             $stmtBoard->execute([$session['id']]);
             $rawLeaderboard = $stmtBoard->fetchAll();
 
@@ -1781,7 +2003,7 @@ try {
                 $avgSpeedMs = floatval($stmtSpeed->fetchColumn() ?: 0);
 
                 $leaderboard[] = [
-                    'name' => $row['name'],
+                    'name' => getDisplayName($row['name'], $username),
                     'score' => intval($row['score']),
                     'streak' => intval($row['streak']),
                     'correct_count' => $correctCount,

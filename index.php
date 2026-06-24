@@ -5,6 +5,17 @@ if (session_status() === PHP_SESSION_NONE) {
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/settings_manager.php';
+
+$quizName = SettingsManager::get('quiz_name', 'TechnoQuiz');
+$orgName = SettingsManager::get('org_name', 'TechnoHacks');
+$quizLogo = SettingsManager::get('quiz_logo', 'assets/logo.png');
+$customColor = SettingsManager::get('custom_colors', '#4F46E5');
+$customFont = SettingsManager::get('custom_fonts', 'Inter, sans-serif');
+$customBg = SettingsManager::get('custom_bg', '');
+$isDarkTheme = SettingsManager::getBool('dark_theme', false);
+$aiQGen = SettingsManager::getBool('ai_q_gen', true);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -12,17 +23,69 @@ if (empty($_SESSION['csrf_token'])) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
-  <title>TechnoQuiz Pro - Institute Testing Arena</title>
+  <title><?php echo htmlspecialchars($quizName); ?> - <?php echo htmlspecialchars($orgName); ?></title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            indigo: {
+              50: '<?php echo htmlspecialchars($customColor); ?>0f',
+              100: '<?php echo htmlspecialchars($customColor); ?>25',
+              600: '<?php echo htmlspecialchars($customColor); ?>',
+              650: '<?php echo htmlspecialchars($customColor); ?>',
+              700: '<?php echo htmlspecialchars($customColor); ?>d0',
+              750: '<?php echo htmlspecialchars($customColor); ?>e0',
+              770: '<?php echo htmlspecialchars($customColor); ?>f0',
+            }
+          }
+        }
+      }
+    }
+  </script>
   <style>
+    body {
+      font-family: <?php echo $customFont; ?> !important;
+      <?php if (!empty($customBg)): ?>
+      background: <?php echo $customBg; ?> !important;
+      <?php endif; ?>
+    }
     .glass-panel {
       background: rgba(255, 255, 255, 0.85);
       backdrop-filter: blur(12px);
     }
   </style>
+  <?php if ($isDarkTheme): ?>
+  <style>
+    body {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+    }
+    header, footer, .bg-white, .tab-panel > div, .bg-gradient-to-br, .md\:w-1\/4, .md\:w-3\/4 {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
+    h1, h2, h3, h4, h5, h6, label, p, span, td, th {
+      color: #f1f5f9 !important;
+    }
+    input, select, textarea {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
+    .text-slate-500, .text-slate-400, .text-slate-450, .text-slate-455 {
+      color: #94a3b8 !important;
+    }
+    .border-slate-100, .border-slate-200 {
+      border-color: #334155 !important;
+    }
+  </style>
+  <?php endif; ?>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
 
@@ -32,10 +95,10 @@ if (empty($_SESSION['csrf_token'])) {
       
       <!-- Brand Logo -->
       <div class="flex items-center gap-3">
-        <img src="assets/logo.png" alt="TechnoHacks Logo" class="h-9 w-9 object-contain" />
+        <img src="<?php echo htmlspecialchars($quizLogo); ?>" alt="Logo" class="h-9 w-9 object-contain" />
         <div>
-          <h1 class="font-sans font-extrabold text-lg tracking-tight text-slate-900 leading-none">TechnoQuiz Pro</h1>
-          <span class="text-[9px] uppercase font-bold tracking-widest text-indigo-600">TechnoHacks Solutions</span>
+          <h1 class="font-sans font-extrabold text-lg tracking-tight text-slate-900 leading-none"><?php echo htmlspecialchars($quizName); ?></h1>
+          <span class="text-[9px] uppercase font-bold tracking-widest text-indigo-600"><?php echo htmlspecialchars($orgName); ?></span>
         </div>
       </div>
 
@@ -84,12 +147,12 @@ if (empty($_SESSION['csrf_token'])) {
 
       <!-- Lobby PIN Box -->
       <div class="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl p-8 text-center space-y-6 relative overflow-hidden">
-        <img src="assets/logo.png" alt="TechnoHacks Solutions" class="mx-auto h-32 w-32 object-contain animate-bounce" />
+        <img src="<?php echo htmlspecialchars($quizLogo); ?>" alt="Logo" class="mx-auto h-32 w-32 object-contain animate-bounce" />
 
         <!-- Welcome Step (Shown by default) -->
         <div id="welcome-step" class="space-y-6 animate-in fade-in duration-300">
           <div>
-            <h2 class="font-sans text-3xl font-extrabold text-slate-900">Welcome to TechnoQuiz Lobby</h2>
+            <h2 class="font-sans text-3xl font-extrabold text-slate-900">Welcome to <?php echo htmlspecialchars($quizName); ?> Lobby</h2>
             <p class="text-slate-500 text-sm mt-2">Ready to test your skills? Join an active classroom session to begin.</p>
           </div>
           <button onclick="showPINStep()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-4 rounded-xl text-sm transition-all cursor-pointer shadow-md flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]">
@@ -124,13 +187,14 @@ if (empty($_SESSION['csrf_token'])) {
               <p class="text-slate-500 text-xs mt-0.5">This name will be displayed on the leaderboards.</p>
             </div>
             <input type="text" id="username-input" required placeholder="e.g. JohnDoe_Prep" class="w-full text-center font-bold text-2xl bg-slate-50 border-2 border-slate-200 focus:border-indigo-650 focus:outline-none rounded-xl p-4 text-slate-800" />
+            <div id="join-additional-fields" class="space-y-3 pt-2"></div>
           </div>
           <div class="grid grid-cols-2 gap-3 pt-2">
             <button type="button" onclick="showPINStep()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl text-xs transition-colors cursor-pointer border border-slate-200">
               Back
             </button>
             <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-xs transition-colors cursor-pointer shadow-sm">
-              OK, Go! ðŸš€
+              OK, Go!
             </button>
           </div>
         </form>
@@ -274,7 +338,7 @@ if (empty($_SESSION['csrf_token'])) {
     <!-- MAKE TAB VIEW -->
     <div id="panel-MAKE" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-8 py-6">
       <!-- Compose wizard -->
-      <div class="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+      <div class="<?php echo $aiQGen ? 'lg:col-span-7' : 'lg:col-span-12'; ?> bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
         <div>
           <h2 class="font-sans text-xl font-bold text-slate-900">Create New Quiz</h2>
           <p class="text-xs text-slate-505 mt-0.5">Build your quiz questions manually or append generated questions from the AI engine.</p>
@@ -317,6 +381,7 @@ if (empty($_SESSION['csrf_token'])) {
         </form>
       </div>
 
+      <?php if ($aiQGen): ?>
       <!-- AI generator -->
       <div class="lg:col-span-5 space-y-6">
         <div class="bg-gradient-to-br from-indigo-50 via-cyan-50/20 to-transparent border border-indigo-100 rounded-2xl p-6 space-y-4 shadow-sm relative overflow-hidden">
@@ -361,6 +426,7 @@ if (empty($_SESSION['csrf_token'])) {
           </div>
         </div>
       </div>
+      <?php endif; ?>
     </div>
 
     <!-- SETTINGS TAB VIEW -->
@@ -1477,6 +1543,7 @@ if (empty($_SESSION['csrf_token'])) {
     function saveGlobalSettings() {
       const payload = {};
       for (const cat in currentSettingsData) {
+        if (cat === 'Audio & Music') continue;
         payload[cat] = {};
         for (const key in currentSettingsData[cat]) {
           payload[cat][key] = currentSettingsData[cat][key].value;
@@ -1682,6 +1749,44 @@ if (empty($_SESSION['csrf_token'])) {
       document.getElementById('welcome-step').classList.add('hidden');
       document.getElementById('pin-form').classList.add('hidden');
       document.getElementById('username-form').classList.remove('hidden');
+      
+      const addContainer = document.getElementById('join-additional-fields');
+      if (addContainer) {
+        addContainer.innerHTML = '';
+        
+        // Access Password
+        const accessPassword = window.publicSettings.access_password || '';
+        if (accessPassword) {
+          addContainer.innerHTML += `
+            <div class="text-left space-y-1">
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Access Password</label>
+              <input type="password" id="join-password-input" required placeholder="Enter Access Password" class="w-full text-center font-semibold bg-slate-50 border border-slate-200 focus:border-indigo-650 focus:outline-none rounded-xl p-3.5 text-slate-800 text-sm" />
+            </div>
+          `;
+        }
+        
+        // Email
+        const emailReq = window.publicSettings.email_req === '1' || window.publicSettings.email_req === 1 || window.publicSettings.email_req === 'Enabled' || window.publicSettings.email_req === true;
+        if (emailReq) {
+          addContainer.innerHTML += `
+            <div class="text-left space-y-1">
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
+              <input type="email" id="join-email-input" required placeholder="e.g. email@domain.com" class="w-full text-center font-semibold bg-slate-50 border border-slate-200 focus:border-indigo-650 focus:outline-none rounded-xl p-3.5 text-slate-800 text-sm" />
+            </div>
+          `;
+        }
+        
+        // Mobile
+        const mobileReq = window.publicSettings.mobile_req === '1' || window.publicSettings.mobile_req === 1 || window.publicSettings.mobile_req === 'Enabled' || window.publicSettings.mobile_req === true;
+        if (mobileReq) {
+          addContainer.innerHTML += `
+            <div class="text-left space-y-1">
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mobile Number</label>
+              <input type="text" id="join-mobile-input" required placeholder="e.g. 9876543210" class="w-full text-center font-semibold bg-slate-50 border border-slate-200 focus:border-indigo-650 focus:outline-none rounded-xl p-3.5 text-slate-800 text-sm" />
+            </div>
+          `;
+        }
+      }
     }
 
     function submitUsername(e) {
@@ -1698,6 +1803,15 @@ if (empty($_SESSION['csrf_token'])) {
       const fd = new FormData();
       fd.append('name', username);
       fd.append('pin_code', activePin);
+      
+      const passInput = document.getElementById('join-password-input');
+      if (passInput) fd.append('access_password', passInput.value);
+      
+      const emailInput = document.getElementById('join-email-input');
+      if (emailInput) fd.append('email', emailInput.value);
+      
+      const mobileInput = document.getElementById('join-mobile-input');
+      if (mobileInput) fd.append('mobile', mobileInput.value);
 
       fetch('api.php?action=register_guest', { method: 'POST', body: fd })
         .then(res => res.json())
@@ -2308,6 +2422,17 @@ if (empty($_SESSION['csrf_token'])) {
         });
     }
 
+    window.publicSettings = {};
+    function fetchPublicSettings() {
+      return fetch('api.php?action=get_public_settings')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.settings) {
+            window.publicSettings = data.settings;
+          }
+        });
+    }
+
     // Boot Init
     const savedMute = localStorage.getItem('settings_music_enabled');
     if (savedMute === 'false') {
@@ -2321,9 +2446,11 @@ if (empty($_SESSION['csrf_token'])) {
       const btn = document.getElementById('mute-btn');
       if (btn) btn.innerHTML = `<i data-lucide="volume-2" class="w-4 h-4 text-green-600"></i>`;
     }
-    checkAuth();
-    loadRecentWinners();
-    lucide.createIcons();
+    fetchPublicSettings().then(() => {
+      checkAuth();
+      loadRecentWinners();
+      lucide.createIcons();
+    });
   </script>
 </body>
 </html>

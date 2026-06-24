@@ -130,6 +130,12 @@ try {
     try {
         $pdo->exec("ALTER TABLE session_participants ADD COLUMN question_started_at INTEGER DEFAULT 0");
     } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN mobile TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN email TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS session_responses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -238,3 +244,6 @@ try {
 } catch (PDOException $e) {
     die("Database Connection / Initialization Failed: " . $e->getMessage());
 }
+
+require_once __DIR__ . '/settings_manager.php';
+SettingsManager::init($pdo);
