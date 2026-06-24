@@ -402,11 +402,109 @@ $isDarkTheme = SettingsManager::getBool('dark_theme', false);
     let initialSyncDone = false;
     let lastQuestionIndex = -1;
 
+    let socket = null;
+    let isWsConnected = false;
+    let lastPingLatency = 50;
+    let isAlreadyAnswered = false;
+
+    function getDeviceType() {
+      const ua = navigator.userAgent;
+      if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return 'Tablet';
+      if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Agent/i.test(ua)) return 'Mobile';
+      return 'Desktop';
+    }
+
+    function getBrowserName() {
+      const ua = navigator.userAgent;
+      if (ua.includes("Chrome") && !ua.includes("Chromium") && !ua.includes("Edg")) return "Chrome";
+      if (ua.includes("Safari") && !ua.includes("Chrome")) return "Safari";
+      if (ua.includes("Firefox")) return "Firefox";
+      if (ua.includes("Edg")) return "Edge";
+      return "Browser";
+    }
+
+    function sendTelemetryHeartbeat() {
+      let liveStatus = 'JOINED';
+      if (currentState === 'ACTIVE_QUESTION') {
+        liveStatus = (answerLocked || isAlreadyAnswered) ? 'ANSWERED' : 'THINKING';
+      } else if (currentState === 'FINISHED') {
+        liveStatus = 'INACTIVE';
+      }
+
+      let connectionQuality = 'Good';
+      if (lastPingLatency > 300) {
+        connectionQuality = 'Poor';
+      } else if (lastPingLatency > 120) {
+        connectionQuality = 'Medium';
+      }
+
+      const fd = new FormData();
+      fd.append('pin_code', pin);
+      fd.append('live_status', liveStatus);
+      fd.append('device_type', getDeviceType());
+      fd.append('browser_info', getBrowserName());
+      fd.append('connection_quality', connectionQuality);
+
+      const t0 = performance.now();
+      originalFetch('api.php?action=update_heartbeat', {
+        method: 'POST',
+        body: fd
+      })
+      .then(res => res.json())
+      .then(data => {
+        lastPingLatency = performance.now() - t0;
+      })
+      .catch(err => {
+        console.error("Heartbeat error:", err);
+      });
+    }
+
+    function initWebSocket() {
+      const wsUrl = `ws://${window.location.hostname}:8085/?pin=${pin}&username=${encodeURIComponent(username)}`;
+      socket = new WebSocket(wsUrl);
+
+      socket.onopen = () => {
+        console.log("WebSocket connected to live lobby!");
+        isWsConnected = true;
+        // Slow down polling interval since WS is alive and provides instant events
+        clearInterval(intervalId);
+        intervalId = setInterval(pollLobby, 5000);
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          console.log("WebSocket Event received:", msg.event);
+          if (['QUIZ_STARTED', 'QUESTION_OPENED', 'QUESTION_CLOSED', 'QUIZ_FINISHED', 'QUIZ_PAUSED', 'QUIZ_RESUMED'].includes(msg.event)) {
+            pollLobby();
+          }
+        } catch (e) {
+          console.error("WS message parse error:", e);
+        }
+      };
+
+      socket.onclose = () => {
+        console.log("WebSocket connection closed. Falling back to HTTP polling.");
+        isWsConnected = false;
+        // Speed up polling interval for fast updates on fallback
+        clearInterval(intervalId);
+        intervalId = setInterval(pollLobby, 300);
+        // Try to reconnect in 5 seconds
+        setTimeout(initWebSocket, 5000);
+      };
+
+      socket.onerror = (err) => {
+        console.error("WebSocket error:", err);
+      };
+    }
+
     window.addEventListener('load', () => {
       sound.playLobby();
       initAntiCheat();
       pollLobby();
       intervalId = setInterval(pollLobby, 300); // 300ms updates
+      initWebSocket();
+      setInterval(sendTelemetryHeartbeat, 4000);
 
       document.addEventListener('click', (e) => {
         if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input[type="submit"]')) {
@@ -657,6 +755,7 @@ $isDarkTheme = SettingsManager::getBool('dark_theme', false);
           }
 
           if (data.status === 'ACTIVE_QUESTION') {
+            isAlreadyAnswered = data.already_answered;
             if (data.already_answered && !transitioningToNext) {
               // Auto-advance since response has been processed
               pollLobby();

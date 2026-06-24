@@ -162,6 +162,108 @@ function getDisplayName($name, $currentGuestName = '') {
     return $name;
 }
 
+function broadcastSessionEvent($pinCode, $event, $data) {
+    $payload = [
+        'pin_code' => $pinCode,
+        'event' => $event,
+        'data' => $data
+    ];
+    $json = json_encode($payload);
+
+    // Call local Node.js WebSocket broker's HTTP broadcast endpoint
+    $url = 'http://localhost:8085/broadcast';
+    
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen($json)
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT_MS, 200); // Fail fast, do not block main request!
+    
+    curl_exec($ch);
+    curl_close($ch);
+}
+
+function logSessionActivity($pdo, $sessionId, $eventType, $message) {
+    try {
+        $stmt = $pdo->prepare("INSERT INTO quiz_activity_log (session_id, event_type, message) VALUES (?, ?, ?)");
+        $stmt->execute([$sessionId, $eventType, $message]);
+    } catch (Exception $e) {
+        // Ignore logging failures
+    }
+}
+
+function recalculateRanks($pdo, $sessionId) {
+    // Fetch participants
+    $stmt = $pdo->prepare("SELECT id, score, streak, current_rank FROM session_participants WHERE session_id = ?");
+    $stmt->execute([$sessionId]);
+    $participants = $stmt->fetchAll();
+
+    $ranked = [];
+    foreach ($participants as $p) {
+        $partId = $p['id'];
+
+        // Get count of correct answers
+        $stmtC = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE participant_id = ? AND is_correct = 1");
+        $stmtC->execute([$partId]);
+        $correct = intval($stmtC->fetchColumn());
+
+        // Get total answers count
+        $stmtT = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE participant_id = ?");
+        $stmtT->execute([$partId]);
+        $total = intval($stmtT->fetchColumn());
+
+        $accuracy = $total > 0 ? ($correct / $total) : 0;
+
+        // Get average response time
+        $stmtS = $pdo->prepare("SELECT AVG(response_time_ms) FROM session_responses WHERE participant_id = ? AND response_time_ms > 0");
+        $stmtS->execute([$partId]);
+        $avgSpeed = floatval($stmtS->fetchColumn() ?: 999999.0);
+
+        // Get earliest completion time (latest answered_at time for their responses)
+        $stmtL = $pdo->prepare("SELECT MAX(answered_at) FROM session_responses WHERE participant_id = ?");
+        $stmtL->execute([$partId]);
+        $lastAnswerTime = $stmtL->fetchColumn() ?: '2999-12-31 23:59:59';
+
+        $ranked[] = [
+            'id' => $p['id'],
+            'score' => intval($p['score']),
+            'accuracy' => $accuracy,
+            'avg_speed' => $avgSpeed,
+            'completion_time' => $lastAnswerTime,
+            'old_rank' => $p['current_rank']
+        ];
+    }
+
+    // Sort rankings: Score DESC -> Accuracy DESC -> Avg Speed ASC -> Completion Time ASC
+    usort($ranked, function($a, $b) {
+        if ($a['score'] !== $b['score']) {
+            return $b['score'] <=> $a['score'];
+        }
+        if ($a['accuracy'] !== $b['accuracy']) {
+            return $b['accuracy'] <=> $a['accuracy'];
+        }
+        if ($a['avg_speed'] !== $b['avg_speed']) {
+            return $a['avg_speed'] <=> $b['avg_speed'];
+        }
+        return strcmp($a['completion_time'], $b['completion_time']);
+    });
+
+    // Update ranks in database
+    $pdo->beginTransaction();
+    foreach ($ranked as $index => $item) {
+        $newRank = $index + 1;
+        $oldRank = $item['old_rank'] !== null ? intval($item['old_rank']) : $newRank;
+        
+        $stmtUp = $pdo->prepare("UPDATE session_participants SET previous_rank = ?, current_rank = ? WHERE id = ?");
+        $stmtUp->execute([$oldRank, $newRank, $item['id']]);
+    }
+    $pdo->commit();
+}
+
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $response = ['error' => 'Invalid action'];
@@ -293,6 +395,11 @@ try {
             require_once __DIR__ . '/settings_manager.php';
             $name = trim($_POST['name'] ?? '');
             $pin = trim($_POST['pin_code'] ?? '');
+            $avatar = trim($_POST['avatar'] ?? '👤');
+            $teamName = trim($_POST['team_name'] ?? '');
+            $department = trim($_POST['department'] ?? '');
+            $institution = trim($_POST['institution'] ?? '');
+
             if (empty($name)) {
                 $response = ['error' => 'Display name is required'];
                 break;
@@ -355,6 +462,7 @@ try {
                     $stmtCheck->execute([$session['id'], $name]);
                     $exists = intval($stmtCheck->fetchColumn()) > 0;
 
+                    $isRejoining = false;
                     if ($exists) {
                         $isRejoin = (isset($_SESSION['username']) && $_SESSION['username'] === $name && isset($_SESSION['role']) && $_SESSION['role'] === 'STUDENT');
                         if ($isRejoin) {
@@ -363,6 +471,7 @@ try {
                                 $response = ['error' => 'Rejoining is disabled. You cannot rejoin after disconnecting.'];
                                 break;
                             }
+                            $isRejoining = true;
                         } else {
                             $unique = SettingsManager::getBool('unique_username', true);
                             $allowDup = SettingsManager::getBool('allow_duplicate_names', false);
@@ -399,8 +508,35 @@ try {
                         }
                     }
 
-                    $stmtIns = $pdo->prepare("INSERT OR IGNORE INTO session_participants (session_id, username, mobile, email) VALUES (?, ?, ?, ?)");
-                    $stmtIns->execute([$session['id'], $name, $mobile, $email]);
+                    if ($isRejoining) {
+                        // Reconnected update
+                        $stmtUpRejoin = $pdo->prepare("UPDATE session_participants SET live_status = 'JOINED', last_activity_time = CURRENT_TIMESTAMP WHERE session_id = ? AND username = ?");
+                        $stmtUpRejoin->execute([$session['id'], $name]);
+
+                        logSessionActivity($pdo, $session['id'], 'RECONNECT', "{$avatar} {$name} reconnected to the quiz!");
+                        
+                        broadcastSessionEvent($pin, 'PARTICIPANT_RECONNECTED', [
+                            'username' => $name,
+                            'avatar' => $avatar,
+                            'message' => "{$avatar} {$name} reconnected!"
+                        ]);
+                    } else {
+                        // Regular Insert
+                        $stmtIns = $pdo->prepare("INSERT OR IGNORE INTO session_participants (session_id, username, mobile, email, avatar, team_name, department, institution, live_status, last_activity_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'JOINED', CURRENT_TIMESTAMP)");
+                        $stmtIns->execute([$session['id'], $name, $mobile, $email, $avatar, $teamName ?: null, $department ?: null, $institution ?: null]);
+
+                        recalculateRanks($pdo, $session['id']);
+                        logSessionActivity($pdo, $session['id'], 'JOIN', "{$avatar} {$name} joined the room!");
+
+                        broadcastSessionEvent($pin, 'PARTICIPANT_JOINED', [
+                            'username' => $name,
+                            'avatar' => $avatar,
+                            'team_name' => $teamName,
+                            'department' => $department,
+                            'institution' => $institution,
+                            'message' => "{$avatar} {$name} joined the room!"
+                        ]);
+                    }
                 } else {
                     $response = ['error' => 'Session not found'];
                     break;
@@ -416,6 +552,53 @@ try {
                 'username' => $name,
                 'role' => 'STUDENT'
             ];
+        case 'update_heartbeat':
+            $pin = $_POST['pin_code'] ?? '';
+            $username = $_SESSION['username'] ?? '';
+            $liveStatus = $_POST['live_status'] ?? 'JOINED'; // JOINED, THINKING, ANSWERED, INACTIVE
+            $deviceType = $_POST['device_type'] ?? 'Desktop';
+            $browserInfo = $_POST['browser_info'] ?? 'Chrome';
+            $connectionQuality = $_POST['connection_quality'] ?? 'Good';
+
+            if (empty($username) || empty($pin)) {
+                $response = ['error' => 'Missing username or PIN code'];
+                break;
+            }
+
+            // Find session
+            $stmtS = $pdo->prepare("SELECT id FROM quiz_sessions WHERE pin_code = ?");
+            $stmtS->execute([$pin]);
+            $session = $stmtS->fetch();
+
+            if (!$session) {
+                $response = ['error' => 'Session not found'];
+                break;
+            }
+
+            // Mark inactive participants as disconnected (unresponsive > 15s)
+            $stmtCleanup = $pdo->prepare("UPDATE session_participants SET live_status = 'DISCONNECTED' WHERE session_id = ? AND live_status NOT IN ('DISCONNECTED', 'INACTIVE') AND (strftime('%s', 'now') - strftime('%s', last_activity_time)) > 15");
+            $stmtCleanup->execute([$session['id']]);
+
+            // Update participant stats
+            $stmtUp = $pdo->prepare("UPDATE session_participants SET 
+                live_status = ?, 
+                device_type = ?, 
+                browser_info = ?, 
+                connection_quality = ?, 
+                last_activity_time = CURRENT_TIMESTAMP 
+                WHERE session_id = ? AND username = ?");
+            $stmtUp->execute([$liveStatus, $deviceType, $browserInfo, $connectionQuality, $session['id'], $username]);
+
+            // Broadcast heartbeat to room
+            broadcastSessionEvent($pin, 'PARTICIPANT_STATUS_UPDATE', [
+                'username' => $username,
+                'live_status' => $liveStatus,
+                'device_type' => $deviceType,
+                'browser_info' => $browserInfo,
+                'connection_quality' => $connectionQuality
+            ]);
+
+            $response = ['success' => true];
             break;
 
         case 'create_quiz':
@@ -888,6 +1071,14 @@ try {
 
             $stmtUpdate = $pdo->prepare("UPDATE quiz_sessions SET status = 'ACTIVE_QUESTION', current_question_index = 0, active_question_start = ? WHERE id = ?");
             $stmtUpdate->execute([time(), $session['id']]);
+
+            logSessionActivity($pdo, $session['id'], 'MILESTONE', "The quiz session has officially started!");
+
+            broadcastSessionEvent($pin, 'QUIZ_STARTED', [
+                'status' => 'ACTIVE_QUESTION',
+                'current_question_index' => 0
+            ]);
+
             $response = ['success' => true];
             break;
 
@@ -966,8 +1157,16 @@ try {
             $stmtQuiz->execute([$question['quiz_id']]);
             $quiz = $stmtQuiz->fetch();
 
+            $longestStreak = intval($participant['longest_streak']);
+            $cumulativeBonus = intval($participant['bonus_points']);
+            $cumulativePenalty = intval($participant['penalty_points']);
+
             if ($isCorrect) {
                 $streak = intval($participant['streak']) + 1;
+                if ($streak > $longestStreak) {
+                    $longestStreak = $streak;
+                }
+                
                 $basePoints = intval(!empty($question['points']) ? $question['points'] : SettingsManager::getInt('pts_per_question', 100));
                 
                 // Calculate response speed bonus
@@ -977,14 +1176,15 @@ try {
                 $fastestBonus = SettingsManager::getInt('fastest_answer_bonus', 50);
                 $bonusEarned = intval($fastestBonus * $remainingFraction);
                 
+                $cumulativeBonus += $bonusEarned;
                 $scoreEarned = $basePoints + $bonusEarned;
-                $correctRank = 0;
             } else {
                 $streak = 0;
                 $useNegative = (intval($quiz['negative_marking'] ?? 0) === 1 || SettingsManager::getBool('negative_marking', false));
                 if ($useNegative) {
                     $penalty = intval(!empty($quiz['negative_marks']) ? $quiz['negative_marks'] : 25);
                     $scoreEarned = -$penalty;
+                    $cumulativePenalty += $penalty;
                 } else {
                     $scoreEarned = 0;
                 }
@@ -999,15 +1199,73 @@ try {
             $nextIdx = intval($participant['current_question_index']) + 1;
 
             // Update participant scores, streak, question index and clear question_started_at
-            $stmtUpP = $pdo->prepare("UPDATE session_participants SET score = ?, streak = ?, current_question_index = ?, question_started_at = 0 WHERE id = ?");
-            $stmtUpP->execute([$newScore, $streak, $nextIdx, $participantId]);
+            $stmtUpP = $pdo->prepare("UPDATE session_participants SET 
+                score = ?, 
+                streak = ?, 
+                longest_streak = ?, 
+                bonus_points = ?, 
+                penalty_points = ?, 
+                current_question_index = ?, 
+                question_started_at = 0,
+                live_status = 'ANSWERED',
+                last_activity_time = CURRENT_TIMESTAMP
+                WHERE id = ?");
+            $stmtUpP->execute([$newScore, $streak, $longestStreak, $cumulativeBonus, $cumulativePenalty, $nextIdx, $participantId]);
+
+            // Recalculate rankings for the session
+            recalculateRanks($pdo, $session['id']);
+
+            // Get updated participant details to find rank change
+            $stmtPAfter = $pdo->prepare("SELECT current_rank, previous_rank, avatar FROM session_participants WHERE id = ?");
+            $stmtPAfter->execute([$participantId]);
+            $after = $stmtPAfter->fetch();
+            $newRank = intval($after['current_rank'] ?? 1);
+            $oldRank = intval($after['previous_rank'] ?? $newRank);
+            $avatar = $after['avatar'] ?: '👤';
+
+            // Check for gamification milestones/activities
+            $activities = [];
+
+            // 1. Streak Milestone
+            if ($isCorrect && $streak >= 3) {
+                $streakMsg = "🔥 {$avatar} {$username} has a streak of {$streak} correct answers!";
+                logSessionActivity($pdo, $session['id'], 'STREAK', $streakMsg);
+                $activities[] = ['type' => 'STREAK', 'message' => $streakMsg];
+            }
+
+            // 2. Rank 1 Milestone
+            if ($newRank === 1 && $oldRank > 1) {
+                $rankMsg = "👑 {$avatar} {$username} took the 1st position!";
+                logSessionActivity($pdo, $session['id'], 'TOP_RANK', $rankMsg);
+                $activities[] = ['type' => 'TOP_RANK', 'message' => $rankMsg];
+            }
+
+            // 3. Perfect Accuracy
+            if ($nextIdx >= 3 && $streak === $nextIdx) {
+                $perfMsg = "🎯 Perfect accuracy! {$avatar} {$username} is {$nextIdx}/{$nextIdx} correct!";
+                logSessionActivity($pdo, $session['id'], 'PERFECT_SCORE', $perfMsg);
+                $activities[] = ['type' => 'PERFECT_SCORE', 'message' => $perfMsg];
+            }
+
+            // Broadcast real-time update to all connected clients
+            broadcastSessionEvent($pin, 'RESPONSE_SUBMITTED', [
+                'username' => $username,
+                'avatar' => $avatar,
+                'is_correct' => $isCorrect ? true : false,
+                'score_earned' => $scoreEarned,
+                'total_score' => $newScore,
+                'streak' => $streak,
+                'current_rank' => $newRank,
+                'rank_change' => ($oldRank - $newRank),
+                'activities' => $activities
+            ]);
 
             $response = [
                 'is_correct' => $isCorrect ? true : false,
                 'score_earned' => $scoreEarned,
                 'total_score' => $newScore,
                 'streak' => $streak,
-                'answer_rank' => $isCorrect ? ($correctRank + 1) : 0
+                'answer_rank' => $newRank
             ];
             break;
 
@@ -1024,12 +1282,20 @@ try {
 
             $stmtUpdate = $pdo->prepare("UPDATE quiz_sessions SET status = 'FINISHED', is_paused = 0, paused_time_left = NULL WHERE id = ?");
             $stmtUpdate->execute([$session['id']]);
+
+            logSessionActivity($pdo, $session['id'], 'MILESTONE', "The quiz session was ended by the administrator.");
+            
+            broadcastSessionEvent($pin, 'QUIZ_FINISHED', [
+                'status' => 'FINISHED'
+            ]);
+
             $response = ['success' => true];
             break;
 
         case 'get_telemetry':
             $pin = $_GET['pin_code'] ?? '';
             $username = $_SESSION['username'] ?? '';
+            
             $stmtS = $pdo->prepare("SELECT * FROM quiz_sessions WHERE pin_code = ?");
             $stmtS->execute([$pin]);
             $session = $stmtS->fetch();
@@ -1039,77 +1305,422 @@ try {
                 break;
             }
 
-            // Fetch question list
-            $stmtQs = $pdo->prepare("SELECT id FROM questions WHERE quiz_id = ? ORDER BY q_order ASC");
+            $sessionId = $session['id'];
+
+            // 1. Mark inactive participants as disconnected (unresponsive > 15s)
+            $stmtCleanup = $pdo->prepare("UPDATE session_participants SET live_status = 'DISCONNECTED' WHERE session_id = ? AND live_status NOT IN ('DISCONNECTED', 'INACTIVE') AND (strftime('%s', 'now') - strftime('%s', last_activity_time)) > 15");
+            $stmtCleanup->execute([$sessionId]);
+
+            // 2. Fetch question list & index details
+            $stmtQs = $pdo->prepare("SELECT id, text, points, time_limit FROM questions WHERE quiz_id = ? ORDER BY q_order ASC");
             $stmtQs->execute([$session['quiz_id']]);
-            $qIds = $stmtQs->fetchAll(PDO::FETCH_COLUMN);
-            $totalQuestionsCount = count($qIds);
-            $activeQId = $qIds[$session['current_question_index']] ?? 0;
+            $questions = $stmtQs->fetchAll();
+            $totalQuestionsCount = count($questions);
+            
+            $currentQIndex = intval($session['current_question_index']);
+            $activeQ = $questions[$currentQIndex] ?? null;
+            $activeQId = $activeQ['id'] ?? 0;
+            $questionsRemaining = max(0, $totalQuestionsCount - $currentQIndex);
 
-            // Total players
-            $stmtTotal = $pdo->prepare("SELECT COUNT(*) FROM session_participants WHERE session_id = ?");
-            $stmtTotal->execute([$session['id']]);
-            $totalPlayers = intval($stmtTotal->fetchColumn());
+            // 3. Overall Session Stats
+            $stmtCounts = $pdo->prepare("
+                SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN live_status IN ('JOINED', 'THINKING', 'ANSWERED') THEN 1 ELSE 0 END) as active,
+                    SUM(CASE WHEN live_status = 'DISCONNECTED' THEN 1 ELSE 0 END) as disconnected,
+                    SUM(CASE WHEN live_status = 'INACTIVE' THEN 1 ELSE 0 END) as inactive
+                FROM session_participants 
+                WHERE session_id = ?
+            ");
+            $stmtCounts->execute([$sessionId]);
+            $counts = $stmtCounts->fetch();
+            
+            $totalPlayers = intval($counts['total'] ?? 0);
+            $activePlayers = intval($counts['active'] ?? 0);
+            $disconnectedPlayers = intval($counts['disconnected'] ?? 0);
+            $inactivePlayers = intval($counts['inactive'] ?? 0);
 
-            // Total answers submitted overall
+            // Fetch answers submitted overall
             $stmtTotalAns = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ?");
-            $stmtTotalAns->execute([$session['id']]);
+            $stmtTotalAns->execute([$sessionId]);
             $totalAnswers = intval($stmtTotalAns->fetchColumn());
 
-            // Fetch active participant feed with progress index and correct counts
-            $stmtFeed = $pdo->prepare("SELECT p.id, p.username, p.score, p.streak, p.current_question_index FROM session_participants p WHERE p.session_id = ? ORDER BY " . getLeaderboardOrderBy('p'));
-            $stmtFeed->execute([$session['id']]);
-            $feed = $stmtFeed->fetchAll();
+            // Answers for the CURRENT question
+            $stmtCurrAns = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND question_id = ?");
+            $stmtCurrAns->execute([$sessionId, $activeQId]);
+            $currentQuestionAnswers = intval($stmtCurrAns->fetchColumn());
+            $pendingAnswers = max(0, $totalPlayers - $currentQuestionAnswers);
 
-            $telemetry = [];
-            foreach ($feed as $row) {
-                // Count correct
+            // Average accuracy overall
+            $stmtAvgAcc = $pdo->prepare("SELECT 
+                SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct_sum,
+                COUNT(*) as total_sum 
+                FROM session_responses WHERE session_id = ?");
+            $stmtAvgAcc->execute([$sessionId]);
+            $avgAccData = $stmtAvgAcc->fetch();
+            $avgAccuracy = intval($avgAccData['total_sum']) > 0 
+                ? round(($avgAccData['correct_sum'] / $avgAccData['total_sum']) * 100) 
+                : 0;
+
+            // Average response speed overall
+            $stmtAvgSpeed = $pdo->prepare("SELECT AVG(response_time_ms) FROM session_responses WHERE session_id = ? AND response_time_ms > 0");
+            $stmtAvgSpeed->execute([$sessionId]);
+            $avgResponseTime = round(floatval($stmtAvgSpeed->fetchColumn() ?: 0) / 1000, 2); // seconds
+
+            // 4. Fetch all participants sorted by rank
+            $stmtPlayers = $pdo->prepare("SELECT * FROM session_participants WHERE session_id = ? ORDER BY current_rank ASC, score DESC, id ASC");
+            $stmtPlayers->execute([$sessionId]);
+            $players = $stmtPlayers->fetchAll();
+
+            $playersTelemetry = [];
+            foreach ($players as $p) {
+                $pId = $p['id'];
+
+                // Correct, wrong, skipped count
                 $stmtC = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND participant_id = ? AND is_correct = 1");
-                $stmtC->execute([$session['id'], $row['id']]);
+                $stmtC->execute([$sessionId, $pId]);
                 $correctCount = intval($stmtC->fetchColumn());
 
-                // Count wrong
                 $stmtW = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND participant_id = ? AND is_correct = 0 AND (option_id IS NOT NULL OR fill_in_text IS NOT NULL OR coding_code IS NOT NULL)");
-                $stmtW->execute([$session['id'], $row['id']]);
+                $stmtW->execute([$sessionId, $pId]);
                 $wrongCount = intval($stmtW->fetchColumn());
 
-                // Count skipped / timeout
                 $stmtS = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND participant_id = ? AND is_correct = 0 AND option_id IS NULL AND fill_in_text IS NULL AND coding_code IS NULL");
-                $stmtS->execute([$session['id'], $row['id']]);
+                $stmtS->execute([$sessionId, $pId]);
                 $skippedCount = intval($stmtS->fetchColumn());
 
-                $remaining = max(0, $totalQuestionsCount - intval($row['current_question_index']));
+                // Participant accuracy
+                $pTotalResponses = $correctCount + $wrongCount + $skippedCount;
+                $accuracy = $pTotalResponses > 0 ? round(($correctCount / $pTotalResponses) * 100) : 0;
 
-                $telemetry[] = [
-                    'name' => getDisplayName($row['username'], $username),
-                    'score' => intval($row['score']),
-                    'streak' => intval($row['streak']),
-                    'current_question_index' => intval($row['current_question_index']),
+                // Participant speeds
+                $stmtSpeed = $pdo->prepare("SELECT AVG(response_time_ms), MIN(response_time_ms) FROM session_responses WHERE session_id = ? AND participant_id = ? AND response_time_ms > 0");
+                $stmtSpeed->execute([$sessionId, $pId]);
+                $speedData = $stmtSpeed->fetch();
+                $avgSpeed = round(floatval($speedData['AVG(response_time_ms)'] ?? 0) / 1000, 2);
+                $fastestSpeed = round(floatval($speedData['MIN(response_time_ms)'] ?? 0) / 1000, 2);
+
+                $rankChange = 0;
+                if ($p['previous_rank'] !== null && $p['current_rank'] !== null) {
+                    $rankChange = intval($p['previous_rank']) - intval($p['current_rank']);
+                }
+
+                $playersTelemetry[] = [
+                    'id' => $p['id'],
+                    'name' => getDisplayName($p['username'], $username),
+                    'raw_name' => $p['username'],
+                    'avatar' => $p['avatar'] ?: '👤',
+                    'team_name' => $p['team_name'] ?: 'Solo',
+                    'department' => $p['department'] ?: 'N/A',
+                    'institution' => $p['institution'] ?: 'N/A',
+                    'score' => intval($p['score']),
+                    'streak' => intval($p['streak']),
+                    'longest_streak' => intval($p['longest_streak']),
+                    'bonus_points' => intval($p['bonus_points']),
+                    'penalty_points' => intval($p['penalty_points']),
+                    'current_question_index' => intval($p['current_question_index']),
                     'correct_count' => $correctCount,
                     'wrong_count' => $wrongCount,
                     'skipped_count' => $skippedCount,
-                    'remaining' => $remaining
+                    'accuracy' => $accuracy,
+                    'avg_response_time' => $avgSpeed,
+                    'fastest_response_time' => $fastestSpeed,
+                    'current_rank' => intval($p['current_rank'] ?? 1),
+                    'previous_rank' => intval($p['previous_rank'] ?? 1),
+                    'rank_change' => $rankChange,
+                    'live_status' => $p['live_status'],
+                    'device_type' => $p['device_type'] ?: 'Desktop',
+                    'browser_info' => $p['browser_info'] ?: 'Chrome',
+                    'connection_quality' => $p['connection_quality'] ?: 'Good',
+                    'last_activity_time' => $p['last_activity_time']
                 ];
             }
 
-            // Per-option answer counts for current question
+            // 5. Team Leaderboard aggregation
+            $teamGroups = [];
+            $deptGroups = [];
+            $instGroups = [];
+
+            foreach ($playersTelemetry as $p) {
+                $tName = $p['team_name'];
+                if (!isset($teamGroups[$tName])) {
+                    $teamGroups[$tName] = ['score' => 0, 'correct' => 0, 'total' => 0, 'members' => [], 'progress' => 0];
+                }
+                $teamGroups[$tName]['score'] += $p['score'];
+                $teamGroups[$tName]['correct'] += $p['correct_count'];
+                $teamGroups[$tName]['total'] += ($p['correct_count'] + $p['wrong_count'] + $p['skipped_count']);
+                $teamGroups[$tName]['members'][] = $p['name'];
+                $teamGroups[$tName]['progress'] += $p['current_question_index'];
+
+                $dName = $p['department'];
+                if ($dName !== 'N/A') {
+                    if (!isset($deptGroups[$dName])) {
+                        $deptGroups[$dName] = ['score' => 0, 'correct' => 0, 'total' => 0, 'members' => [], 'progress' => 0];
+                    }
+                    $deptGroups[$dName]['score'] += $p['score'];
+                    $deptGroups[$dName]['correct'] += $p['correct_count'];
+                    $deptGroups[$dName]['total'] += ($p['correct_count'] + $p['wrong_count'] + $p['skipped_count']);
+                    $deptGroups[$dName]['members'][] = $p['name'];
+                    $deptGroups[$dName]['progress'] += $p['current_question_index'];
+                }
+
+                $iName = $p['institution'];
+                if ($iName !== 'N/A') {
+                    if (!isset($instGroups[$iName])) {
+                        $instGroups[$iName] = ['score' => 0, 'correct' => 0, 'total' => 0, 'members' => [], 'progress' => 0];
+                    }
+                    $instGroups[$iName]['score'] += $p['score'];
+                    $instGroups[$iName]['correct'] += $p['correct_count'];
+                    $instGroups[$iName]['total'] += ($p['correct_count'] + $p['wrong_count'] + $p['skipped_count']);
+                    $instGroups[$iName]['members'][] = $p['name'];
+                    $instGroups[$iName]['progress'] += $p['current_question_index'];
+                }
+            }
+
+            $teamRankings = [];
+            foreach ($teamGroups as $name => $g) {
+                $mCount = count($g['members']);
+                $teamRankings[] = [
+                    'name' => $name,
+                    'score' => $g['score'],
+                    'accuracy' => $g['total'] > 0 ? round(($g['correct'] / $g['total']) * 100) : 0,
+                    'members' => $g['members'],
+                    'members_count' => $mCount,
+                    'progress' => $mCount > 0 ? round(($g['progress'] / ($mCount * $totalQuestionsCount)) * 100) : 0
+                ];
+            }
+            usort($teamRankings, function($a, $b) { return $b['score'] <=> $a['score']; });
+            foreach ($teamRankings as $idx => &$t) { $t['rank'] = $idx + 1; }
+
+            $deptRankings = [];
+            foreach ($deptGroups as $name => $g) {
+                $mCount = count($g['members']);
+                $deptRankings[] = [
+                    'name' => $name,
+                    'score' => $g['score'],
+                    'accuracy' => $g['total'] > 0 ? round(($g['correct'] / $g['total']) * 100) : 0,
+                    'members' => $g['members'],
+                    'members_count' => $mCount,
+                    'progress' => $mCount > 0 ? round(($g['progress'] / ($mCount * $totalQuestionsCount)) * 100) : 0
+                ];
+            }
+            usort($deptRankings, function($a, $b) { return $b['score'] <=> $a['score']; });
+            foreach ($deptRankings as $idx => &$t) { $t['rank'] = $idx + 1; }
+
+            $instRankings = [];
+            foreach ($instGroups as $name => $g) {
+                $mCount = count($g['members']);
+                $instRankings[] = [
+                    'name' => $name,
+                    'score' => $g['score'],
+                    'accuracy' => $g['total'] > 0 ? round(($g['correct'] / $g['total']) * 100) : 0,
+                    'members' => $g['members'],
+                    'members_count' => $mCount,
+                    'progress' => $mCount > 0 ? round(($g['progress'] / ($mCount * $totalQuestionsCount)) * 100) : 0
+                ];
+            }
+            usort($instRankings, function($a, $b) { return $b['score'] <=> $a['score']; });
+            foreach ($instRankings as $idx => &$t) { $t['rank'] = $idx + 1; }
+
+            // 6. Current Question Analytics
+            $questionAnalytics = null;
             $optionCounts = [];
-            if ($activeQId) {
+            if ($activeQ) {
+                $stmtRespC = $pdo->prepare("SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct,
+                    SUM(CASE WHEN is_correct = 0 AND (option_id IS NOT NULL OR fill_in_text IS NOT NULL OR coding_code IS NOT NULL) THEN 1 ELSE 0 END) as wrong,
+                    SUM(CASE WHEN is_correct = 0 AND option_id IS NULL AND fill_in_text IS NULL AND coding_code IS NULL THEN 1 ELSE 0 END) as skipped,
+                    AVG(response_time_ms) as avg_time
+                    FROM session_responses WHERE session_id = ? AND question_id = ?");
+                $stmtRespC->execute([$sessionId, $activeQId]);
+                $respStats = $stmtRespC->fetch();
+
+                $qTotal = intval($respStats['total'] ?? 0);
+                $qCorrect = intval($respStats['correct'] ?? 0);
+                $qWrong = intval($respStats['wrong'] ?? 0);
+                $qSkipped = intval($respStats['skipped'] ?? 0);
+                $qAvgTime = round(floatval($respStats['avg_time'] ?? 0) / 1000, 2);
+
+                $qAccuracy = $qTotal > 0 ? round(($qCorrect / $qTotal) * 100) : 0;
+                $difficulty = $qTotal > 0 ? (100 - $qAccuracy) : 0;
+
+                $questionAnalytics = [
+                    'text' => $activeQ['text'],
+                    'total_responses' => $qTotal,
+                    'correct_responses' => $qCorrect,
+                    'wrong_responses' => $qWrong,
+                    'skipped_responses' => $qSkipped,
+                    'accuracy' => $qAccuracy,
+                    'difficulty' => $difficulty,
+                    'avg_time_taken' => $qAvgTime
+                ];
+
                 $stmtOpts = $pdo->prepare("SELECT o.id, o.text, COUNT(r.id) as pick_count FROM options o LEFT JOIN session_responses r ON r.option_id = o.id AND r.session_id = ? WHERE o.question_id = ? GROUP BY o.id ORDER BY o.o_order ASC");
-                $stmtOpts->execute([$session['id'], $activeQId]);
+                $stmtOpts->execute([$sessionId, $activeQId]);
                 $optionCounts = $stmtOpts->fetchAll();
             }
 
+            // 7. AI Winner Prediction Algorithm
+            $predictions = [];
+            if ($totalPlayers > 0) {
+                $maxPossibleScore = 0;
+                $expectedScores = [];
+
+                foreach ($playersTelemetry as $p) {
+                    $pAccuracy = ($p['accuracy'] ?? 50) / 100.0;
+                    $pAvgSpeed = $p['avg_response_time'] > 0 ? $p['avg_response_time'] : 15.0; // fallback 15s
+
+                    // expected score calculation
+                    $remainingQ = $questionsRemaining;
+                    $projectedGain = 0;
+                    for ($i = $currentQIndex; $i < $totalQuestionsCount; $i++) {
+                        $qPoints = intval($questions[$i]['points'] ?? 100);
+                        $qTimeLimit = intval($questions[$i]['time_limit'] ?? 30);
+                        
+                        // expected points from correctness
+                        $qExpectedBase = $pAccuracy * $qPoints;
+
+                        // expected speed bonus points
+                        $remainingFraction = max(0, ($qTimeLimit - $pAvgSpeed) / ($qTimeLimit ?: 30));
+                        $fastestBonus = SettingsManager::getInt('fastest_answer_bonus', 50);
+                        $qExpectedBonus = $pAccuracy * ($fastestBonus * $remainingFraction);
+
+                        $projectedGain += ($qExpectedBase + $qExpectedBonus);
+                    }
+
+                    $expectedScore = $p['score'] + $projectedGain;
+                    $expectedScores[$p['name']] = $expectedScore;
+                }
+
+                // Softmax win probability
+                $sumExp = 0;
+                $expVals = [];
+                $scale = 500.0;
+                foreach ($expectedScores as $name => $expScore) {
+                    $val = exp($expScore / $scale);
+                    $expVals[$name] = $val;
+                    $sumExp += $val;
+                }
+
+                // Rank the expected scores
+                arsort($expectedScores);
+                $expectedRanks = [];
+                $expectedRankIdx = 1;
+                foreach ($expectedScores as $name => $expScore) {
+                    $expectedRanks[$name] = $expectedRankIdx++;
+                }
+
+                // Calculate risk of drop & trend
+                foreach ($playersTelemetry as $index => $p) {
+                    $name = $p['name'];
+                    
+                    $prob = $sumExp > 0 ? round(($expVals[$name] / $sumExp) * 100, 1) : 0;
+
+                    $risk = 'LOW';
+                    $playerBelow = $playersTelemetry[$index + 1] ?? null;
+                    if ($playerBelow) {
+                        $gap = $p['score'] - $playerBelow['score'];
+                        if ($gap < 150) $risk = 'HIGH';
+                        elseif ($gap < 400) $risk = 'MEDIUM';
+                    }
+
+                    // Performance Trend (based on last 3 answers)
+                    $stmtTrend = $pdo->prepare("SELECT is_correct FROM session_responses WHERE participant_id = ? ORDER BY answered_at DESC LIMIT 3");
+                    $stmtTrend->execute([$p['id']]);
+                    $lastAnswers = $stmtTrend->fetchAll(PDO::FETCH_COLUMN);
+                    
+                    $trend = 'STABLE';
+                    if (count($lastAnswers) === 3) {
+                        $correctCount = array_sum(array_map('intval', $lastAnswers));
+                        if ($correctCount === 3) $trend = 'UPWARD';
+                        elseif ($correctCount === 0) $trend = 'DOWNWARD';
+                    }
+
+                    $predictions[] = [
+                        'username' => $name,
+                        'win_probability' => $prob,
+                        'expected_final_rank' => $expectedRanks[$name] ?? $p['current_rank'],
+                        'expected_final_score' => round($expectedScores[$name]),
+                        'performance_trend' => $trend,
+                        'risk_of_drop' => $risk
+                    ];
+                }
+            }
+
+            // 8. Fetch Live Activity Feed
+            $stmtAct = $pdo->prepare("SELECT event_type, message, created_at FROM quiz_activity_log WHERE session_id = ? ORDER BY id DESC LIMIT 20");
+            $stmtAct->execute([$sessionId]);
+            $activityFeed = $stmtAct->fetchAll();
+
             $response = [
                 'status' => $session['status'],
-                'players' => $telemetry,
                 'total_players' => $totalPlayers,
-                'total_answers' => $totalAnswers,
+                'active_players' => $activePlayers,
+                'disconnected_players' => $disconnectedPlayers,
+                'inactive_players' => $inactivePlayers,
                 'total_questions' => $totalQuestionsCount,
-                'current_question_index' => intval($session['current_question_index']),
-                'option_counts' => $optionCounts
+                'current_question_index' => $currentQIndex,
+                'questions_remaining' => $questionsRemaining,
+                'total_answers' => $totalAnswers,
+                'current_question_answers' => $currentQuestionAnswers,
+                'pending_answers' => $pendingAnswers,
+                'average_accuracy' => $avgAccuracy,
+                'average_response_time' => $avgResponseTime,
+                'players' => $playersTelemetry,
+                'team_rankings' => $teamRankings,
+                'department_rankings' => $deptRankings,
+                'institution_rankings' => $instRankings,
+                'question_analytics' => $questionAnalytics,
+                'option_counts' => $optionCounts,
+                'predictions' => $predictions,
+                'activity_feed' => $activityFeed
             ];
-            break;
+        case 'export_csv':
+            $pin = $_GET['pin_code'] ?? '';
+            $stmtS = $pdo->prepare("SELECT id, quiz_id FROM quiz_sessions WHERE pin_code = ?");
+            $stmtS->execute([$pin]);
+            $session = $stmtS->fetch();
+            if (!$session) {
+                $response = ['error' => 'Session not found'];
+                break;
+            }
+            
+            header('Content-Type: text/csv');
+            header('Content-Disposition: attachment; filename="leaderboard_' . $pin . '.csv"');
+            
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['Rank', 'Username', 'Avatar', 'Team', 'Department', 'Institution', 'Score', 'Streak', 'Longest Streak', 'Bonus Points', 'Penalty Points', 'Correct Answers', 'Device', 'Browser']);
+            
+            $stmtPlayers = $pdo->prepare("SELECT * FROM session_participants WHERE session_id = ? ORDER BY current_rank ASC, score DESC");
+            $stmtPlayers->execute([$session['id']]);
+            $players = $stmtPlayers->fetchAll();
+            
+            foreach ($players as $p) {
+                // Correct count
+                $stmtC = $pdo->prepare("SELECT COUNT(*) FROM session_responses WHERE session_id = ? AND participant_id = ? AND is_correct = 1");
+                $stmtC->execute([$session['id'], $p['id']]);
+                $correct = intval($stmtC->fetchColumn());
+                
+                fputcsv($output, [
+                    $p['current_rank'],
+                    $p['username'],
+                    $p['avatar'],
+                    $p['team_name'] ?: 'Solo',
+                    $p['department'] ?: 'N/A',
+                    $p['institution'] ?: 'N/A',
+                    $p['score'],
+                    $p['streak'],
+                    $p['longest_streak'],
+                    $p['bonus_points'],
+                    $p['penalty_points'],
+                    $correct,
+                    $p['device_type'] ?: 'Unknown',
+                    $p['browser_info'] ?: 'Unknown'
+                ]);
+            }
+            fclose($output);
+            exit;
 
         case 'next_question':
             $pin = $_POST['pin_code'] ?? '';
@@ -1131,14 +1742,34 @@ try {
                 // End current question and show leaderboard/answers
                 $stmtUpdate = $pdo->prepare("UPDATE quiz_sessions SET status = 'SHOWING_LEADERBOARD', is_paused = 0, paused_time_left = NULL WHERE id = ?");
                 $stmtUpdate->execute([$session['id']]);
+
+                broadcastSessionEvent($pin, 'QUESTION_CLOSED', [
+                    'status' => 'SHOWING_LEADERBOARD',
+                    'current_question_index' => intval($session['current_question_index'])
+                ]);
             } else if ($session['status'] === 'SHOWING_LEADERBOARD') {
                 $nextIdx = intval($session['current_question_index']) + 1;
                 if ($nextIdx < $totalQs) {
                     $stmtUpdate = $pdo->prepare("UPDATE quiz_sessions SET status = 'ACTIVE_QUESTION', current_question_index = ?, active_question_start = ?, is_paused = 0, paused_time_left = NULL WHERE id = ?");
                     $stmtUpdate->execute([$nextIdx, time(), $session['id']]);
+
+                    // Set participants status back to 'THINKING' for next question
+                    $stmtResetP = $pdo->prepare("UPDATE session_participants SET live_status = 'THINKING' WHERE session_id = ? AND live_status NOT IN ('DISCONNECTED', 'INACTIVE')");
+                    $stmtResetP->execute([$session['id']]);
+
+                    broadcastSessionEvent($pin, 'QUESTION_OPENED', [
+                        'status' => 'ACTIVE_QUESTION',
+                        'current_question_index' => $nextIdx
+                    ]);
                 } else {
                     $stmtUpdate = $pdo->prepare("UPDATE quiz_sessions SET status = 'FINISHED', is_paused = 0, paused_time_left = NULL WHERE id = ?");
                     $stmtUpdate->execute([$session['id']]);
+
+                    logSessionActivity($pdo, $session['id'], 'MILESTONE', "The quiz session has been concluded!");
+
+                    broadcastSessionEvent($pin, 'QUIZ_FINISHED', [
+                        'status' => 'FINISHED'
+                    ]);
                 }
             }
             $response = ['success' => true];
@@ -1158,6 +1789,11 @@ try {
             if ($session['status'] === 'ACTIVE_QUESTION') {
                 $stmtUpdate = $pdo->prepare("UPDATE quiz_sessions SET status = 'SHOWING_LEADERBOARD', is_paused = 0, paused_time_left = NULL WHERE id = ?");
                 $stmtUpdate->execute([$session['id']]);
+
+                broadcastSessionEvent($pin, 'QUESTION_CLOSED', [
+                    'status' => 'SHOWING_LEADERBOARD',
+                    'current_question_index' => intval($session['current_question_index'])
+                ]);
             }
             $response = ['success' => true];
             break;

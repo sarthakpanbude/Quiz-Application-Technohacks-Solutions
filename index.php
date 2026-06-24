@@ -525,9 +525,14 @@ $aiQGen = SettingsManager::getBool('ai_q_gen', true);
           <h3 class="font-sans text-xl font-extrabold text-slate-900" id="leaderboard-modal-title">Quiz Leaderboard</h3>
           <p class="text-xs text-slate-500 mt-1" id="leaderboard-modal-subtitle">Session Details</p>
         </div>
-        <button onclick="closeLeaderboardModal()" class="p-2 text-slate-400 hover:text-slate-650 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
+        <div class="flex items-center gap-3">
+          <button onclick="launchLiveLeaderboard()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm">
+            <i data-lucide="external-link" class="w-4 h-4"></i> Live Esports Dashboard
+          </button>
+          <button onclick="closeLeaderboardModal()" class="p-2 text-slate-400 hover:text-slate-650 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
       </div>
 
       <!-- Modal Content Wrapper (Swappable Leaderboard / Student Detail View) -->
@@ -1786,8 +1791,43 @@ $aiQGen = SettingsManager::getBool('ai_q_gen', true);
             </div>
           `;
         }
+
+        // Always add Avatar, Team, Department, Institution
+        addContainer.innerHTML += `
+          <div class="text-left space-y-2">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Choose Avatar</label>
+            <div class="grid grid-cols-6 gap-2 p-2 bg-slate-50 border border-slate-200 rounded-xl" id="avatar-selector-grid">
+              ${['👤', '🚀', '🎮', '🦄', '🐯', '⚡', '👑', '👽', '🤠', '🤖', '🍕', '🦊'].map((emoji, idx) => `
+                <button type="button" onclick="selectAvatarEmoji('${emoji}', this)" class="avatar-select-btn text-xl p-2 rounded-lg hover:bg-indigo-50 border border-transparent transition-all cursor-pointer ${idx === 0 ? 'bg-indigo-50 border-indigo-650' : ''}">
+                  ${emoji}
+                </button>
+              `).join('')}
+            </div>
+            <input type="hidden" id="join-avatar-input" value="👤" />
+          </div>
+          <div class="text-left space-y-1">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Team Name (Optional)</label>
+            <input type="text" id="join-team-input" placeholder="e.g. Team Alpha" class="w-full text-center font-semibold bg-slate-50 border border-slate-200 focus:border-indigo-650 focus:outline-none rounded-xl p-3.5 text-slate-800 text-sm" />
+          </div>
+          <div class="text-left space-y-1">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Department (Optional)</label>
+            <input type="text" id="join-dept-input" placeholder="e.g. Engineering" class="w-full text-center font-semibold bg-slate-50 border border-slate-200 focus:border-indigo-650 focus:outline-none rounded-xl p-3.5 text-slate-800 text-sm" />
+          </div>
+          <div class="text-left space-y-1">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Institution / School (Optional)</label>
+            <input type="text" id="join-inst-input" placeholder="e.g. Stanford University" class="w-full text-center font-semibold bg-slate-50 border border-slate-200 focus:border-indigo-650 focus:outline-none rounded-xl p-3.5 text-slate-800 text-sm" />
+          </div>
+        `;
       }
     }
+
+    window.selectAvatarEmoji = function(emoji, button) {
+      document.getElementById('join-avatar-input').value = emoji;
+      document.querySelectorAll('.avatar-select-btn').forEach(btn => {
+        btn.classList.remove('bg-indigo-50', 'border-indigo-650');
+      });
+      button.classList.add('bg-indigo-50', 'border-indigo-650');
+    };
 
     function submitUsername(e) {
       e.preventDefault();
@@ -1812,6 +1852,18 @@ $aiQGen = SettingsManager::getBool('ai_q_gen', true);
       
       const mobileInput = document.getElementById('join-mobile-input');
       if (mobileInput) fd.append('mobile', mobileInput.value);
+
+      const avatarInput = document.getElementById('join-avatar-input');
+      if (avatarInput) fd.append('avatar', avatarInput.value);
+
+      const teamInput = document.getElementById('join-team-input');
+      if (teamInput) fd.append('team_name', teamInput.value);
+
+      const deptInput = document.getElementById('join-dept-input');
+      if (deptInput) fd.append('department', deptInput.value);
+
+      const instInput = document.getElementById('join-inst-input');
+      if (instInput) fd.append('institution', instInput.value);
 
       fetch('api.php?action=register_guest', { method: 'POST', body: fd })
         .then(res => res.json())
@@ -2140,6 +2192,12 @@ $aiQGen = SettingsManager::getBool('ai_q_gen', true);
 
     function closeLeaderboardModal() {
       document.getElementById('leaderboard-modal').classList.add('hidden');
+    }
+
+    function launchLiveLeaderboard() {
+      if (typeof currentModalPin !== 'undefined' && currentModalPin) {
+        window.open('enterprise_leaderboard.php?pin=' + currentModalPin, '_blank');
+      }
     }
 
     function showMainLeaderboardView() {

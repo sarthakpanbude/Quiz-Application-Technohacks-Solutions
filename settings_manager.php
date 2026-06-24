@@ -16,8 +16,8 @@ class SettingsManager {
             return;
         }
 
-        require __DIR__ . '/settings_schema.php';
         global $DEFAULT_SETTINGS;
+        require __DIR__ . '/settings_schema.php';
 
         // Load default values from schema
         self::$settings = [];

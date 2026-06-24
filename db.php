@@ -136,6 +136,48 @@ try {
     try {
         $pdo->exec("ALTER TABLE session_participants ADD COLUMN email TEXT DEFAULT NULL");
     } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN avatar TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN team_name TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN department TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN institution TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN previous_rank INTEGER DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN current_rank INTEGER DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN longest_streak INTEGER DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN bonus_points INTEGER DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN penalty_points INTEGER DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN device_type TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN browser_info TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN connection_quality TEXT DEFAULT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN last_activity_time DATETIME DEFAULT CURRENT_TIMESTAMP");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN live_status TEXT DEFAULT 'JOINED'");
+    } catch (PDOException $e) {}
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS session_responses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -166,6 +208,15 @@ try {
         setting_key TEXT PRIMARY KEY,
         setting_value TEXT,
         category TEXT
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS quiz_activity_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER,
+        event_type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(session_id) REFERENCES quiz_sessions(id) ON DELETE CASCADE
     )");
 
     // Seed default React & JS Placement Prep quiz if quizzes list is empty

@@ -249,6 +249,9 @@ $isDarkTheme = SettingsManager::getBool('dark_theme', false);
         <button id="btn-resume" onclick="resumeQuiz()" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl text-sm flex items-center gap-2 transition-all cursor-pointer shadow-md transform active:scale-95">
           <i data-lucide="play" class="w-4 h-4"></i> Resume Quiz
         </button>
+        <button onclick="window.open('enterprise_leaderboard.php?pin=' + pin, '_blank')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl text-sm flex items-center gap-2 transition-all cursor-pointer shadow-md transform active:scale-95">
+          <i data-lucide="external-link" class="w-4 h-4"></i> Live Esports Leaderboard
+        </button>
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
         <!-- Left: Live Rankings Table (2/3 width) -->
