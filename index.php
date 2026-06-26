@@ -932,6 +932,9 @@ $aiQGen = SettingsManager::getBool('ai_q_gen', true);
       if (!file) return;
       const formData = new FormData();
       formData.append('audio_file', file);
+      if (typeof csrfToken !== 'undefined' && csrfToken) {
+        formData.append('csrf_token', csrfToken);
+      }
       
       const fileLabel = event.target.parentElement;
       const originalHtml = fileLabel.innerHTML;
@@ -972,7 +975,7 @@ $aiQGen = SettingsManager::getBool('ai_q_gen', true);
 
       fetch('api.php?action=rename_audio', {
         method: 'POST',
-        body: JSON.stringify({ file_path: path, new_name: newName }),
+        body: JSON.stringify({ file_path: path, new_name: newName, csrf_token: typeof csrfToken !== 'undefined' ? csrfToken : '' }),
         headers: { 'Content-Type': 'application/json' }
       })
       .then(res => res.json())
@@ -998,7 +1001,7 @@ $aiQGen = SettingsManager::getBool('ai_q_gen', true);
 
       fetch('api.php?action=delete_audio', {
         method: 'POST',
-        body: JSON.stringify({ file_path: path }),
+        body: JSON.stringify({ file_path: path, csrf_token: typeof csrfToken !== 'undefined' ? csrfToken : '' }),
         headers: { 'Content-Type': 'application/json' }
       })
       .then(res => res.json())
@@ -1030,6 +1033,9 @@ $aiQGen = SettingsManager::getBool('ai_q_gen', true);
       if (!file) return;
       const formData = new FormData();
       formData.append('audio_file', file);
+      if (typeof csrfToken !== 'undefined' && csrfToken) {
+        formData.append('csrf_token', csrfToken);
+      }
 
       const btn = event.target.parentElement;
       const originalHtml = btn.innerHTML;
@@ -1942,6 +1948,9 @@ $aiQGen = SettingsManager::getBool('ai_q_gen', true);
     function duplicateQuiz(quizId) {
       const fd = new FormData();
       fd.append('quiz_id', quizId);
+      if (typeof csrfToken !== 'undefined' && csrfToken) {
+        fd.append('csrf_token', csrfToken);
+      }
       fetch('api.php?action=duplicate_quiz', { method: 'POST', body: fd })
         .then(() => loadTemplates());
     }
@@ -1950,6 +1959,9 @@ $aiQGen = SettingsManager::getBool('ai_q_gen', true);
       if (!confirm("Are you sure you want to delete this quiz template? This action cannot be undone and will delete all associated questions.")) return;
       const fd = new FormData();
       fd.append('quiz_id', quizId);
+      if (typeof csrfToken !== 'undefined' && csrfToken) {
+        fd.append('csrf_token', csrfToken);
+      }
       fetch('api.php?action=delete_quiz', { method: 'POST', body: fd })
         .then(res => res.json())
         .then(data => {
@@ -2469,6 +2481,9 @@ $aiQGen = SettingsManager::getBool('ai_q_gen', true);
       
       const fd = new FormData();
       fd.append('session_id', sessionId);
+      if (typeof csrfToken !== 'undefined' && csrfToken) {
+        fd.append('csrf_token', csrfToken);
+      }
       fetch('api.php?action=delete_session', { method: 'POST', body: fd })
         .then(res => res.json())
         .then(data => {
