@@ -1676,6 +1676,7 @@ try {
                 'predictions' => $predictions,
                 'activity_feed' => $activityFeed
             ];
+            break;
         case 'export_csv':
             $pin = $_GET['pin_code'] ?? '';
             $stmtS = $pdo->prepare("SELECT id, quiz_id FROM quiz_sessions WHERE pin_code = ?");

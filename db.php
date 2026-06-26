@@ -51,6 +51,7 @@ try {
         question_time_limit INTEGER DEFAULT NULL,
         music_enabled INTEGER DEFAULT 1,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
     )");
 
@@ -110,7 +111,7 @@ try {
         $pdo->exec("ALTER TABLE quizzes ADD COLUMN shuffle_options INTEGER DEFAULT 0");
     } catch (PDOException $e) {}
     try {
-        $pdo->exec("ALTER TABLE quiz_sessions ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+        $pdo->exec("ALTER TABLE quiz_sessions ADD COLUMN created_at DATETIME DEFAULT NULL");
     } catch (PDOException $e) {}
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS session_participants (
@@ -120,6 +121,8 @@ try {
         score INTEGER DEFAULT 0,
         streak INTEGER DEFAULT 0,
         joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_activity_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        live_status TEXT DEFAULT 'JOINED',
         FOREIGN KEY(session_id) REFERENCES quiz_sessions(id) ON DELETE CASCADE,
         UNIQUE(session_id, username)
     )");
@@ -173,7 +176,7 @@ try {
         $pdo->exec("ALTER TABLE session_participants ADD COLUMN connection_quality TEXT DEFAULT NULL");
     } catch (PDOException $e) {}
     try {
-        $pdo->exec("ALTER TABLE session_participants ADD COLUMN last_activity_time DATETIME DEFAULT CURRENT_TIMESTAMP");
+        $pdo->exec("ALTER TABLE session_participants ADD COLUMN last_activity_time DATETIME DEFAULT NULL");
     } catch (PDOException $e) {}
     try {
         $pdo->exec("ALTER TABLE session_participants ADD COLUMN live_status TEXT DEFAULT 'JOINED'");
